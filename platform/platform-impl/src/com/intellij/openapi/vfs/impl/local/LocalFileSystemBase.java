@@ -337,6 +337,8 @@ public abstract class LocalFileSystemBase extends LocalFileSystem {
 
     auxNotifyCompleted(handler -> handler.createDirectory(parent, name));
 
+    //FiXME RC: why we return FakeVirtualFile (extends StubVirtualFile) here?
+    //          it is quite strange/surprising implementation to use
     return new FakeVirtualFile(parent, name);
   }
 
@@ -393,7 +395,7 @@ public abstract class LocalFileSystemBase extends LocalFileSystem {
         return LocalFileSystemEelUtil.fetchCaseSensitivityUsingEel(eelPath);
       }
     }
-    return FileSystemUtil.readParentCaseSensitivity(new File(parent.getPath(), childName));
+    return FileSystemUtil.readParentCaseSensitivity(Path.of(parent.getPath(), childName));
   }
 
   @Override
@@ -488,6 +490,9 @@ public abstract class LocalFileSystemBase extends LocalFileSystem {
     if (newParent.findChild(name) != null) {
       throw new IOException(IdeCoreBundle.message("vfs.target.already.exists.error", newParent.getPath() + "/" + name));
     }
+    //findChild(name)=null adds the name to adoptedNames (file names known absent in the folder), which has
+    // unexpected but desirable side effect: prevents loading the child into VFS in parallel, via 'local refresh'
+    // branch in PersistentFSImpl.findChildInfo()
 
     if (!auxMove(file, newParent)) {
       var nioFile = convertToNioFileAndCheck(file, false);

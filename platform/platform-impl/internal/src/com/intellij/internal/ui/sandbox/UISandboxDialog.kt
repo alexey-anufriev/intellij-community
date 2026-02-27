@@ -52,6 +52,8 @@ import com.intellij.internal.ui.sandbox.screenshots.button.ButtonTypesPanel
 import com.intellij.internal.ui.sandbox.screenshots.checkbox.CheckboxTypesPanel
 import com.intellij.internal.ui.sandbox.screenshots.checkbox.LabelOnTheRightCorrectPanel
 import com.intellij.internal.ui.sandbox.screenshots.checkbox.LabelOnTheRightIncorrectPanel
+import com.intellij.internal.ui.sandbox.screenshots.checkbox.LongLabelInCheckboxCorrectPanel
+import com.intellij.internal.ui.sandbox.screenshots.checkbox.LongLabelInCheckboxIncorrectPanel
 import com.intellij.internal.ui.sandbox.screenshots.checkbox.OneSelectedCheckboxPanel
 import com.intellij.internal.ui.sandbox.screenshots.checkbox.WhenNotToUseCheckboxes1CorrectPanel
 import com.intellij.internal.ui.sandbox.screenshots.checkbox.WhenNotToUseCheckboxes1IncorrectPanel
@@ -94,6 +96,7 @@ import com.intellij.util.Alarm
 import com.intellij.util.concurrency.Invoker
 import com.intellij.util.ui.JBDimension
 import com.intellij.util.ui.JBUI
+import java.awt.Dimension
 import java.awt.Font
 import java.awt.event.KeyEvent
 import java.util.function.Consumer
@@ -187,6 +190,7 @@ internal class UISandboxDialog(private val project: Project?) : DialogWrapper(pr
     )),
   ))
 
+  infix fun Int.x(h: Int): Dimension = Dimension(this, h)
   private fun createScreenshotsNode(): Group = Group("For Screenshots", children = listOf(
     CaptureScreenshotsPanel(),
     Group("Buttons", children = listOf(
@@ -213,27 +217,27 @@ internal class UISandboxDialog(private val project: Project?) : DialogWrapper(pr
           LabelOnTheRightCorrectPanel(),
         )),
         Group("Long labels", children = listOf(
-          OneSelectedCheckboxPanel(false, """<html>Insert selected suggestion by pressing<br/>space, dot, or other context-dependent<br/>keys. Suggestions will appear as you type<br/>and can help you complete words and<br/>phrases more quickly</html>"""),
-          OneSelectedCheckboxPanel(true, """<html>Insert selected suggestion by pressing<br/>space, dot, or other context-dependent keys</html>"""),
+          LongLabelInCheckboxIncorrectPanel(),
+          LongLabelInCheckboxCorrectPanel(),
         )),
       )),
 
       Group("Writing guidelines", children = listOf(
         Group("Sentence-style capitalization", children = listOf(
-          OneSelectedCheckboxPanel(true, "Display icons in menu items"),
-          OneSelectedCheckboxPanel(false, "Display icons in Menu Items"),
+          OneSelectedCheckboxPanel(true, "Display icons in menu items", 756 x 256, "images/ui/checkbox/checkbox_writing_1_correct.png"),
+          OneSelectedCheckboxPanel(false, "Display icons in Menu Items", 756 x 256, "images/ui/checkbox/checkbox_writing_1_incorrect.png"),
         )),
         Group("Ending punctuation", children = listOf(
-          OneSelectedCheckboxPanel(true, "Sync theme with OS"),
-          OneSelectedCheckboxPanel(false, "Sync theme with OS."),
+          OneSelectedCheckboxPanel(true, "Sync theme with OS", 756 x 256, "images/ui/checkbox/checkbox_writing_2_correct.png"),
+          OneSelectedCheckboxPanel(false, "Sync theme with OS.", 756 x 256, "images/ui/checkbox/checkbox_writing_2_incorrect.png"),
         )),
         Group("Imperative form of verbs", children = listOf(
-          OneSelectedCheckboxPanel(true, """<html>Use 'Next Error' action for high<br/>priority problems only</html>"""),
-          OneSelectedCheckboxPanel(false, """<html>'Next Error' action goes to high<br/>priority problems only</html>"""),
+          OneSelectedCheckboxPanel(true, """<html>Use 'Next Error' action for high<br/>priority problems only</html>""", 756 x 288, "images/ui/checkbox/checkbox_writing_3_correct.png"),
+          OneSelectedCheckboxPanel(false, """<html>'Next Error' action goes to high<br/>priority problems only</html>""", 756 x 288, "images/ui/checkbox/checkbox_writing_3_incorrect.png"),
         )),
         Group("Negation in labels", children = listOf(
-          OneSelectedCheckboxPanel(true, "Show mnemonics in menu"),
-          OneSelectedCheckboxPanel(false, "Do not show mnemonics in menu"),
+          OneSelectedCheckboxPanel(true, "Show mnemonics in menu", 756 x 256, "images/ui/checkbox/checkbox_writing_4_correct.png"),
+          OneSelectedCheckboxPanel(false, "Do not show mnemonics in menu", 756 x 256, "images/ui/checkbox/checkbox_writing_4_incorrect.png"),
         )),
       )),
     )),

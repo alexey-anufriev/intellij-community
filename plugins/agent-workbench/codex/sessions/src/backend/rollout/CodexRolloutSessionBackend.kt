@@ -1,9 +1,12 @@
 // Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 
+@file:Suppress("ReplaceGetOrSet")
+
 package com.intellij.agent.workbench.codex.sessions.backend.rollout
 
 // @spec community/plugins/agent-workbench/spec/agent-sessions-codex-rollout-source.spec.md
 
+import com.intellij.agent.workbench.codex.common.normalizeRootPath
 import com.intellij.agent.workbench.codex.sessions.backend.CodexBackendThread
 import com.intellij.agent.workbench.codex.sessions.backend.CodexSessionBackend
 import com.intellij.agent.workbench.codex.sessions.resolveProjectDirectoryFromPath
@@ -57,6 +60,11 @@ internal class CodexRolloutSessionBackend(
       return@callbackFlow
     }
 
+    val initialRefreshEmitted = trySend(CodexRolloutChangeSet()).isSuccess
+    LOG.debug {
+      "Codex rollout watcher initialized; initial refresh ping emitted=$initialRefreshEmitted"
+    }
+
     awaitClose {
       LOG.debug { "Closing Codex rollout updates watcher" }
       watcher.close()
@@ -77,18 +85,18 @@ internal class CodexRolloutSessionBackend(
       val pathFilters = resolvePathFilters(paths)
       if (pathFilters.isEmpty()) return@withContext emptyMap()
 
-      val threadsByCwd = threadIndex.collectByCwd(pathFilters.map { (_, cwdFilter) -> cwdFilter }.toSet())
+      val threadsByCwd = threadIndex.collectByCwd(pathFilters.mapTo(HashSet(pathFilters.size)) { (_, cwdFilter) -> cwdFilter })
       pathFilters.associate { (path, cwdFilter) ->
-        path to threadsByCwd[cwdFilter].orEmpty()
+        path to threadsByCwd.get(cwdFilter).orEmpty()
       }
     }
   }
+}
 
-  private fun resolvePathFilters(paths: List<String>): List<Pair<String, String>> {
-    return paths.mapNotNull { path ->
-      resolveProjectDirectoryFromPath(path)?.let { directory ->
-        path to normalizeRootPath(directory.invariantSeparatorsPathString)
-      }
+private fun resolvePathFilters(paths: List<String>): List<Pair<String, String>> {
+  return paths.mapNotNull { path ->
+    resolveProjectDirectoryFromPath(path)?.let { directory ->
+      path to normalizeRootPath(directory.invariantSeparatorsPathString)
     }
   }
 }

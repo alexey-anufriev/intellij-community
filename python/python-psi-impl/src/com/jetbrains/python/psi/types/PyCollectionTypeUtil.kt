@@ -62,16 +62,17 @@ object PyCollectionTypeUtil {
       if (!(keyType is PyClassType && PyNames.TYPE_STR == keyType.classQName)) {
         return null
       }
-      val keyExpression = if (keyType is PyLiteralType) {
-        keyType.expression
+      val keyString: String? = if (keyType is PyLiteralType) {
+        keyType.stringValue
       }
       else {
-        element.key
+        val keyExpression = element.key
+        if (keyExpression is PyStringLiteralExpression) keyExpression.stringValue else null
       }
-      if (keyExpression !is PyStringLiteralExpression) {
+      if (keyString == null) {
         return null
       }
-      strKeysToValueTypes[keyExpression.stringValue] = Pair(element.value, PyLiteralType.upcastLiteralToClass(valueType))
+      strKeysToValueTypes[keyString] = Pair(element.value, PyLiteralType.upcastLiteralToClass(valueType))
     }
 
     return strKeysToValueTypes

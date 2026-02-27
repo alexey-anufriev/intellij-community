@@ -114,7 +114,7 @@ class KotlinFirSafeDeleteProcessor : SafeDeleteProcessorDelegateBase() {
                         SafeDeleteReferenceSimpleDeleteUsageInfo(e, expected, true)
                     } else {
                         val importDirective = e.getNonStrictParentOfType<KtImportDirective>()
-                        SafeDeleteReferenceSimpleDeleteUsageInfo(importDirective ?: e, expected, importDirective != null)
+                        SafeDeleteReferenceSimpleDeleteUsageInfo(importDirective ?: e, expected, importDirective != null && importDirective.importedReference == e.parent)
                     }
                     result.add(usageInfo)
                 }

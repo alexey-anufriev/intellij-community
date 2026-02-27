@@ -528,6 +528,7 @@ private object ConstraintReducer {
       Variance.INFER_VARIANCE -> {
         UNREACHABLE()
       }
+      Variance.BIVARIANT -> {}
     }
     // success
   }
@@ -663,7 +664,7 @@ private object ConstraintReducer {
 
   private fun reduceComposedType(
     left: PyType?,
-    right: PyCompoundType, // COMPOSED TYPE
+    right: PyCompositeType, // COMPOSED TYPE
     variance: Variance,
     cp: ConstraintProblem,
   ) {

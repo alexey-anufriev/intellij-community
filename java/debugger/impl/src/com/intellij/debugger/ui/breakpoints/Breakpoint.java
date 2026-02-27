@@ -67,6 +67,7 @@ import com.intellij.util.ThreeState;
 import com.intellij.util.concurrency.AppExecutorUtil;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.xdebugger.XExpression;
+import com.intellij.xdebugger.DapMode;
 import com.intellij.xdebugger.breakpoints.SuspendPolicy;
 import com.intellij.xdebugger.breakpoints.XBreakpoint;
 import com.intellij.xdebugger.breakpoints.XLineBreakpoint;
@@ -366,7 +367,7 @@ public abstract class Breakpoint<P extends JavaBreakpointProperties> implements 
       runAction(evaluationContext, event);
     }
     catch (final EvaluateException ex) {
-      if (ApplicationManager.getApplication().isUnitTestMode()) {
+      if (ApplicationManager.getApplication().isUnitTestMode() && !DapMode.isDap()) {
         System.out.println(ex.getMessage());
         return false;
       }

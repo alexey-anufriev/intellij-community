@@ -1,12 +1,13 @@
 // Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.agent.workbench.sessions
 
+import com.intellij.agent.workbench.common.normalizeAgentWorkbenchPathOrNull
+import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.configurations.PathEnvironmentVariableUtil
+import com.intellij.execution.process.CapturingProcessHandler
 import com.intellij.openapi.diagnostic.logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import com.intellij.execution.configurations.GeneralCommandLine
-import com.intellij.execution.process.CapturingProcessHandler
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
@@ -39,7 +40,7 @@ internal object GitWorktreeDiscovery {
       val dir = Path.of(projectPath)
       val dotGit = dir.resolve(".git")
       when {
-        dotGit.isDirectory() -> normalizePath(projectPath)
+        dotGit.isDirectory() -> normalizeAgentWorkbenchPathOrNull(projectPath)
         dotGit.isRegularFile() -> resolveRepoRootFromDotGitFile(dotGit, dir)
         else -> null
       }
@@ -83,7 +84,7 @@ internal object GitWorktreeDiscovery {
   }
 
   internal fun resolveRepoRootFromGitDir(gitDir: String): String? {
-    val normalized = normalizePath(gitDir) ?: return null
+    val normalized = normalizeAgentWorkbenchPathOrNull(gitDir) ?: return null
     val worktreesIdx = normalized.lastIndexOf("/.git/worktrees/")
     if (worktreesIdx < 0) return null
     return normalized.substring(0, worktreesIdx)
@@ -100,7 +101,7 @@ internal object GitWorktreeDiscovery {
         val path = currentPath
         if (path != null) {
           result.add(GitWorktreeInfo(
-            path = normalizePath(path) ?: path,
+            path = normalizeAgentWorkbenchPathOrNull(path) ?: path,
             branch = currentBranch,
             isMain = isFirst,
           ))
@@ -120,7 +121,7 @@ internal object GitWorktreeDiscovery {
     val path = currentPath
     if (path != null) {
       result.add(GitWorktreeInfo(
-        path = normalizePath(path) ?: path,
+        path = normalizeAgentWorkbenchPathOrNull(path) ?: path,
         branch = currentBranch,
         isMain = isFirst,
       ))
@@ -129,33 +130,32 @@ internal object GitWorktreeDiscovery {
     return result
   }
 
-  // ---- private helpers ----
+}
 
-  private fun resolveRepoRootFromDotGitFile(dotGitFile: Path, worktreeDir: Path): String? {
-    val content = dotGitFile.readText()
-    val rawGitDir = parseGitFile(content) ?: return null
-    val gitDirPath = try {
-      val parsed = Path.of(rawGitDir)
-      if (parsed.isAbsolute) parsed else worktreeDir.resolve(parsed).normalize()
-    }
-    catch (_: InvalidPathException) {
-      return null
-    }
-    return resolveRepoRootFromGitDir(gitDirPath.invariantSeparatorsPathString)
+private fun resolveRepoRootFromDotGitFile(dotGitFile: Path, worktreeDir: Path): String? {
+  val content = dotGitFile.readText()
+  val rawGitDir = GitWorktreeDiscovery.parseGitFile(content) ?: return null
+  val gitDirPath = try {
+    val parsed = Path.of(rawGitDir)
+    if (parsed.isAbsolute) parsed else worktreeDir.resolve(parsed).normalize()
   }
+  catch (_: InvalidPathException) {
+    return null
+  }
+  return GitWorktreeDiscovery.resolveRepoRootFromGitDir(gitDirPath.invariantSeparatorsPathString)
+}
 
-  private fun findGitExecutable(): String? {
-    return PathEnvironmentVariableUtil.findExecutableInPathOnAnyOS(GIT_COMMAND)?.absolutePath
-  }
+private fun findGitExecutable(): String? {
+  return PathEnvironmentVariableUtil.findExecutableInPathOnAnyOS(GIT_COMMAND)?.absolutePath
+}
 
-  private fun runGitWorktreeList(gitExecutable: String, directory: Path): String? {
-    val commandLine = GeneralCommandLine(gitExecutable, "worktree", "list", "--porcelain")
-      .withWorkingDirectory(directory)
-    val handler = CapturingProcessHandler(commandLine)
-    val result = handler.runProcess(PROCESS_TIMEOUT_MS.toInt())
-    if (result.isTimeout || result.exitCode != 0) return null
-    return result.stdout
-  }
+private fun runGitWorktreeList(gitExecutable: String, directory: Path): String? {
+  val commandLine = GeneralCommandLine(gitExecutable, "worktree", "list", "--porcelain")
+    .withWorkingDirectory(directory)
+  val handler = CapturingProcessHandler(commandLine)
+  val result = handler.runProcess(PROCESS_TIMEOUT_MS.toInt())
+  if (result.isTimeout || result.exitCode != 0) return null
+  return result.stdout
 }
 
 internal fun shortBranchName(fullRef: String?): String? {
@@ -169,14 +169,5 @@ internal fun worktreeDisplayName(path: String): String {
   }
   catch (_: InvalidPathException) {
     path
-  }
-}
-
-private fun normalizePath(path: String): String? {
-  return try {
-    Path.of(path).invariantSeparatorsPathString
-  }
-  catch (_: InvalidPathException) {
-    null
   }
 }

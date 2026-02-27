@@ -172,7 +172,7 @@ public final class KotlinJvmDifferentiateStrategy extends JvmDifferentiateStrate
           map(filter(container.getTypeAliases(), ta -> !KJvmUtils.isPrivate(ta)), KmTypeAlias::getName)
         )))) {
           context.affectUsage(new LookupNameUsage(scopeName, symbolName));
-          debug(context, "Affect ", "lookup '" + symbolName + "'", " usage owned by node '", addedClass.getName(), "'");
+          debug(context, "Affect ", "lookup '" + symbolName + "'", " usage owned by '", scopeName, "' ", "(node '", addedClass.getName(), "')");
         }
 
         boolean conflictsFound = false;
@@ -658,6 +658,18 @@ public final class KotlinJvmDifferentiateStrategy extends JvmDifferentiateStrate
       for (KmTypeAlias alias : filter(meta != null? meta.getKmTypeAliases() : List.of(), a -> !KJvmUtils.isPrivate(Attributes.getVisibility(a)))) {
         debug(context, "A type alias declaration is contained in a source compiled with errors; affecting lookup usages ", alias.getName());
         affectMemberLookupUsages(context, jvmClass, alias.getName(), present, cache);
+      }
+
+      if (meta != null) {
+        KotlinOverridesChecker overridesChecker = KotlinOverridesChecker.forClass(jvmClass);
+        if (overridesChecker.hasOverridableMembers()) {
+          // walk all subclasses and mark those that override something
+          for (JvmClass subClass : flat(map(present.allSubclasses(jvmClass.getReferenceID()), id -> present.getNodes(id, JvmClass.class)))) {
+            if (overridesChecker.hasOverrideMatchingMembers(subClass)) {
+              affectNodeSources(context, subClass.getReferenceID(), "Class" + jvmClass.getName() + " compiled with errors. Subclass " + subClass.getName() + " overrides one or more members from it. Affecting " , present);
+            }
+          }
+        }
       }
     }
 

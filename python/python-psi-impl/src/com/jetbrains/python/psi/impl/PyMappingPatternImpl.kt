@@ -9,7 +9,6 @@ import com.jetbrains.python.psi.PyKeyValuePattern
 import com.jetbrains.python.psi.PyMappingPattern
 import com.jetbrains.python.psi.PyPattern
 import com.jetbrains.python.psi.PyPsiFacade
-import com.jetbrains.python.psi.PyStringLiteralExpression
 import com.jetbrains.python.psi.impl.PyBuiltinCache.Companion.getInstance
 import com.jetbrains.python.psi.types.PyCollectionType
 import com.jetbrains.python.psi.types.PyCollectionTypeImpl
@@ -99,8 +98,8 @@ private fun PyType?.getValueType(sequenceMember: PyKeyValuePattern, context: Typ
 
 private fun PyKeyValuePattern.getKeyString(context: TypeEvalContext): String? {
   val keyType = context.getType(keyPattern)
-  if (keyType is PyLiteralType && keyType.expression is PyStringLiteralExpression) {
-    return keyType.expression.getStringValue()
+  if (keyType is PyLiteralType) {
+    return keyType.stringValue
   }
   return null
 }

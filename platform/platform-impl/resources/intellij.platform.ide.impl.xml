@@ -18,9 +18,10 @@
     <module name="intellij.libraries.http.client"/>
     <module name="intellij.libraries.icu4j"/>
     <module name="intellij.libraries.imgscalr"/>
-    <module name="intellij.libraries.jackson"/>
-    <module name="intellij.libraries.jackson.databind"/>
-    <module name="intellij.libraries.jackson.jr.objects"/>
+    <module name="intellij.libraries.jackson3"/>
+    <module name="intellij.libraries.jackson3.databind"/>
+    <module name="intellij.libraries.jackson3.jr.objects"/>
+    <module name="intellij.libraries.jackson3.module.kotlin"/>
     <module name="intellij.libraries.jbr"/>
     <module name="intellij.libraries.jcef"/>
     <module name="intellij.libraries.jgoodies.common"/>
@@ -64,6 +65,11 @@
     <module name="intellij.platform.welcomeScreen.impl"/>
   </dependencies>
   <!-- endregion -->
+  <extensionPoints>
+    <extensionPoint qualifiedName="com.intellij.editor.interLineBreakpointConfigurationProvider"
+                    interface="com.intellij.openapi.editor.impl.InterLineBreakpointConfigurationProvider"
+                    dynamic="true"/>
+  </extensionPoints>
   <extensions defaultExtensionNs="com.intellij">
     <registryKey
       key="ide.project.frame.auto.fix.size.windows.interval"
@@ -72,7 +78,7 @@
     />
     <registryKey
       key="ide.windows.main.menu.focus.on.alt"
-      defaultValue="false"
+      defaultValue="true"
       description="Enable Alt key to focus the main menu bar on Windows"
       restartRequired="true"
     />

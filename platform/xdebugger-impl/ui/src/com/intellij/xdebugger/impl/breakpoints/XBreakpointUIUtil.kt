@@ -4,6 +4,7 @@ package com.intellij.xdebugger.impl.breakpoints
 import com.intellij.CommonBundle
 import com.intellij.codeInsight.folding.impl.FoldingUtil
 import com.intellij.codeInsight.folding.impl.actions.ExpandRegionAction
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.readAction
@@ -26,9 +27,13 @@ import com.intellij.platform.debugger.impl.shared.proxy.XDebugManagerProxy
 import com.intellij.platform.debugger.impl.shared.proxy.XLineBreakpointInstallationInfo
 import com.intellij.platform.debugger.impl.shared.proxy.XLineBreakpointProxy
 import com.intellij.platform.debugger.impl.shared.proxy.XLineBreakpointTypeProxy
+import com.intellij.ui.ExperimentalUI
+import com.intellij.ui.LayeredIcon
+import com.intellij.ui.scale.JBUIScale
 import com.intellij.util.SmartList
 import com.intellij.xdebugger.XDebuggerBundle
 import com.intellij.xdebugger.XSourcePosition
+import com.intellij.xdebugger.breakpoints.SuspendPolicy
 import com.intellij.xdebugger.impl.XSourcePositionImpl
 import com.intellij.xdebugger.impl.ui.DebuggerUIUtil
 import com.intellij.xdebugger.settings.XDebuggerSettingsManager
@@ -38,6 +43,7 @@ import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
 import org.jetbrains.annotations.ApiStatus
 import java.util.concurrent.CompletableFuture
+import javax.swing.Icon
 import kotlin.math.max
 
 @ApiStatus.Internal
@@ -52,7 +58,7 @@ object XBreakpointUIUtil {
       offset = textLength
     }
 
-    val breakpoint = findBreakpoint(project, editorDocument, offset)
+    val breakpoint = findBreakpoint(project, editorDocument, editorDocument.getLineNumber(offset))
     if (breakpoint != null) {
       return Pair.create(breakpoint.getGutterIconRenderer(), breakpoint)
     }
@@ -75,9 +81,8 @@ object XBreakpointUIUtil {
     return Pair.create(null, null)
   }
 
-  private fun findBreakpoint(project: Project, document: Document, offset: Int): XLineBreakpointProxy? {
+  fun findBreakpoint(project: Project, document: Document, line: Int): XLineBreakpointProxy? {
     val breakpointManager = XDebugManagerProxy.getInstance().getBreakpointManagerProxy(project)
-    val line = document.getLineNumber(offset)
     val file = FileDocumentManager.getInstance().getFile(document) ?: return null
     for (type in breakpointManager.getLineBreakpointTypes()) {
       val breakpoint = breakpointManager.findBreakpointAtLine(type, file, line)
@@ -85,7 +90,6 @@ object XBreakpointUIUtil {
         return breakpoint
       }
     }
-
     return null
   }
 
@@ -233,18 +237,14 @@ object XBreakpointUIUtil {
 
   @JvmStatic
   fun <T : XBreakpointProxy> removeBreakpointIfPossible(
-    project: Project,
     info: XLineBreakpointInstallationInfo,
     vararg breakpoints: T,
-  ) {
-    if (info.canRemoveBreakpoint()) {
-      removeBreakpointsWithConfirmation(project, *breakpoints)
+  ): CompletableFuture<Void?> {
+    if (!info.canRemoveBreakpoint()) {
+      return CompletableFuture.completedFuture(null)
     }
-  }
 
-  @JvmStatic
-  fun removeBreakpointWithConfirmation(breakpoint: XBreakpointProxy): Boolean {
-    return removeBreakpointWithConfirmation(breakpoint.project, breakpoint)
+    return removeBreakpointsWithConfirmation(*breakpoints)
   }
 
   /**
@@ -252,7 +252,8 @@ object XBreakpointUIUtil {
    * Returns whether breakpoint was really deleted.
    */
   @JvmStatic
-  fun removeBreakpointWithConfirmation(project: Project, breakpoint: XBreakpointProxy): Boolean {
+  fun removeBreakpointWithConfirmation(breakpoint: XBreakpointProxy): CompletableFuture<Boolean> {
+    val project = breakpoint.project
     if ((!DebuggerUIUtil.isEmptyExpression(breakpoint.getConditionExpression()) || !DebuggerUIUtil.isEmptyExpression(breakpoint.getLogExpressionObject())) &&
         !ApplicationManager.getApplication().isHeadlessEnvironment &&
         !ApplicationManager.getApplication().isUnitTestMode &&
@@ -290,29 +291,86 @@ object XBreakpointUIUtil {
             }
           }
         ) != Messages.OK) {
-        return false
+        return CompletableFuture.completedFuture(false)
       }
     }
     val breakpointManager = XDebugManagerProxy.getInstance().getBreakpointManagerProxy(project)
     breakpointManager.rememberRemovedBreakpoint(breakpoint)
-    breakpointManager.removeBreakpoint(breakpoint)
-    return true
+    return breakpointManager.removeBreakpoint(breakpoint).thenApply { true }
   }
 
   @JvmStatic
-  fun removeBreakpointsWithConfirmation(breakpoints: List<XBreakpointProxy>) {
-    if (breakpoints.isEmpty()) return
-    val project = breakpoints[0].project
+  fun removeBreakpointsWithConfirmation(breakpoints: List<XBreakpointProxy>): CompletableFuture<Void?> {
+    if (breakpoints.isEmpty()) return CompletableFuture.completedFuture(null)
     // FIXME[inline-bp]: support multiple breakpoints restore
     // FIXME[inline-bp]: Reconsider this, maybe we should have single confirmation for all breakpoints.
-    removeBreakpointsWithConfirmation(project, *breakpoints.toTypedArray())
+    return removeBreakpointsWithConfirmation(*breakpoints.toTypedArray())
+  }
+
+  private fun <T : XBreakpointProxy> removeBreakpointsWithConfirmation(vararg breakpoints: T): CompletableFuture<Void?> {
+    val futures = breakpoints.map { removeBreakpointWithConfirmation(it) }
+    return CompletableFuture.allOf(*futures.toTypedArray())
   }
 
   @JvmStatic
-  fun <T : XBreakpointProxy> removeBreakpointsWithConfirmation(project: Project, vararg breakpoints: T) {
-    for (b in breakpoints) {
-      removeBreakpointWithConfirmation(project, b)
+  fun calculateIcon(breakpoint: XBreakpointProxy): Icon {
+    val specialIcon = calculateSpecialIcon(breakpoint)
+    val icon = specialIcon ?: breakpoint.type.enabledIcon
+    return withQuestionBadgeIfNeeded(icon, breakpoint)
+  }
+
+  private fun withQuestionBadgeIfNeeded(icon: Icon, breakpoint: XBreakpointProxy): Icon {
+    if (DebuggerUIUtil.isEmptyExpression(breakpoint.getConditionExpression())) {
+      return icon
     }
+    val newIcon = LayeredIcon(2)
+    newIcon.setIcon(icon, 0)
+    val hShift = if (ExperimentalUI.isNewUI()) 7 else 10
+    newIcon.setIcon(AllIcons.Debugger.Question_badge, 1, hShift, 6)
+    return JBUIScale.scaleIcon(newIcon)
+  }
+
+  private fun calculateSpecialIcon(breakpoint: XBreakpointProxy): Icon? {
+    val type = breakpoint.type
+    val debugManager = XDebugManagerProxy.getInstance()
+    val session = debugManager.getCurrentSessionProxy(breakpoint.project)
+    val breakpointManager = debugManager.getBreakpointManagerProxy(breakpoint.project)
+
+    if (!breakpoint.isEnabled()) {
+      return if (session != null && session.areBreakpointsMuted()) {
+        type.mutedDisabledIcon
+      }
+      else {
+        type.disabledIcon
+      }
+    }
+
+    if (session == null) {
+      if (breakpointManager.dependentBreakpointManager.getMasterBreakpoint(breakpoint) != null) {
+        return type.inactiveDependentIcon
+      }
+    }
+    else {
+      if (session.areBreakpointsMuted()) {
+        return type.mutedEnabledIcon
+      }
+      if (session.isInactiveSlaveBreakpoint(breakpoint)) {
+        return type.inactiveDependentIcon
+      }
+      breakpoint.getCustomizedPresentationForCurrentSession()?.icon?.let { return it }
+    }
+
+    if (breakpoint.getSuspendPolicy() == SuspendPolicy.NONE) {
+      return type.suspendNoneIcon
+    }
+
+    breakpoint.getCustomizedPresentation()?.icon?.let { return it }
+
+    if (breakpoint is XLineBreakpointProxy && breakpoint.isTemporary() && breakpoint.type.temporaryIcon != null) {
+      return breakpoint.type.temporaryIcon
+    }
+
+    return null
   }
 }
 

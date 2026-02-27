@@ -107,7 +107,7 @@ private class CodeFoldingNecromancer(
     }
     if (foldingState != null) {
       withContext(Dispatchers.EDT) {
-        if (editor.foldingModel.isFoldingEnabled && modStamp == document.modificationStamp) {
+        if (editor.foldingModel.isFoldingEnabled && modStamp == document.modificationStamp && psiDocumentManager.isCommitted(document)) {
           runReadAction { // set to editor with RA IJPL-159083
             SlowOperations.knownIssue("IJPL-165088").use {
               foldingState.run()

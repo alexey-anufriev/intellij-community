@@ -371,6 +371,7 @@ libraries/asm
 libraries/asm-tools
 libraries/assertj-core
 libraries/automaton
+libraries/batik
 libraries/blockmap
 libraries/bouncy-castle-pgp
 libraries/bouncy-castle-provider
@@ -406,11 +407,17 @@ libraries/imgscalr
 libraries/ini4j
 libraries/io
 libraries/ion
+libraries/jackson/annotations
 libraries/jackson/databind
 libraries/jackson/dataformat-yaml
 libraries/jackson/jackson
 libraries/jackson/jr-objects
 libraries/jackson/module-kotlin
+libraries/jackson3/databind
+libraries/jackson3/dataformat-yaml
+libraries/jackson3/jackson
+libraries/jackson3/jr-objects
+libraries/jackson3/module-kotlin
 libraries/java-websocket
 libraries/javax/activation
 libraries/javax/annotation
@@ -778,6 +785,8 @@ platform/statistics/testFramework
 platform/statistics/uploader
 platform/structuralsearch
 platform/structure-view-impl
+platform/structure-view-impl/backend
+platform/structure-view-impl/frontend
 platform/syntax/syntax-api
 platform/syntax/syntax-extensions
 platform/syntax/syntax-i18n
@@ -880,10 +889,12 @@ plugins/agent-workbench/claude/common
 plugins/agent-workbench/claude/sessions
 plugins/agent-workbench/codex/common
 plugins/agent-workbench/codex/sessions
+plugins/agent-workbench/common
 plugins/agent-workbench/filewatch
 plugins/agent-workbench/json
 plugins/agent-workbench/plugin
 plugins/agent-workbench/sessions
+plugins/agent-workbench/sessions-core
 plugins/ant
 plugins/ant/jps-plugin
 plugins/built-in-help
@@ -963,6 +974,7 @@ plugins/eclipse/common-eclipse-util
 plugins/eclipse/jps-plugin
 plugins/editorconfig
 plugins/editorconfig/backend
+plugins/editorconfig/backend.spellchecking
 plugins/editorconfig/common
 plugins/editorconfig/frontend
 plugins/emojipicker
@@ -1545,8 +1557,9 @@ python/python-markdown
 python/python-parser
 python/python-poetry/backend
 python/python-poetry/common
-python/python-process-output
-python/python-process-output/impl
+python/python-process-output/backend
+python/python-process-output/common
+python/python-process-output/frontend
 python/python-psi-api
 python/python-psi-impl
 python/python-pyproject

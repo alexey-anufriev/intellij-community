@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 @file:Suppress("ReplacePutWithAssignment", "OVERRIDE_DEPRECATION", "ReplaceGetOrSet")
 
 package com.intellij.openapi.editor.impl
@@ -361,7 +361,7 @@ class EditorMarkupModelImpl internal constructor(private val editor: EditorImpl)
       val lineCount = editor.visibleLineCount
       var shift = 0
       if (visualLine >= lineCount - 1) {
-        val sequence = editor.document.charsSequence
+        val sequence = editor.uiDocument.charsSequence
         shift = if (sequence.isEmpty()) 0 else if (sequence.get(sequence.length - 1) == '\n') 1 else 0
       }
       return max(0, min(lineCount - shift, visualLine))
@@ -773,10 +773,11 @@ class EditorMarkupModelImpl internal constructor(private val editor: EditorImpl)
     val offset: Int
     var logicalPositionToScroll: LogicalPosition? = null
     val editorPreviewHint = editorFragmentRenderer.editorPreviewHint
+    val doc: Document = editor.uiDocument
     if (marker == null) {
       if (editorPreviewHint != null) {
         logicalPositionToScroll = editor.visualToLogicalPosition(VisualPosition(editorFragmentRenderer.startVisualLine, 0))
-        offset = editor.document.getLineStartOffset(logicalPositionToScroll.line)
+        offset = doc.getLineStartOffset(logicalPositionToScroll.line)
       }
       else {
         return
@@ -785,8 +786,6 @@ class EditorMarkupModelImpl internal constructor(private val editor: EditorImpl)
     else {
       offset = marker.getStartOffset()
     }
-
-    val doc: Document = editor.document
     if (doc.getLineCount() > 0 && editorPreviewHint == null) {
       // Necessary to expand folded block even if navigating just before one
       // Very useful when navigating to the first unused import statement.
@@ -1432,7 +1431,7 @@ class EditorMarkupModelImpl internal constructor(private val editor: EditorImpl)
     if (!dimensionsAreValid) {
       recalcEditorDimensions()
     }
-    val document: Document = editor.document
+    val document: Document = editor.uiDocument
     val startLineNumber = if (end == -1) 0 else offsetToLine(start, document)
     val editorStartY = editor.visualLineToY(startLineNumber)
     val editorTargetHeight = max(0, myEditorTargetHeight)
@@ -1477,7 +1476,7 @@ class EditorMarkupModelImpl internal constructor(private val editor: EditorImpl)
     }
     val visual = editor.xyToVisualPosition(Point(0, editorY))
     val line = editor.visualToLogicalPosition(visual).line
-    val document: Document = editor.document
+    val document: Document = editor.uiDocument
     if (line < 0) {
       return 0
     }

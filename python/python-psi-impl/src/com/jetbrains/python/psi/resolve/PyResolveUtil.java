@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.PsiDirectory;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiNamedElement;
@@ -327,19 +328,21 @@ public final class PyResolveUtil {
     final List<RatedResolveResult> result = StreamEx.of(remainingNames).foldLeft(StreamEx.of(unqualifiedResults), (prev, name) ->
         prev
           .map(RatedResolveResult::getElement)
-          .select(PyTypedElement.class)
-          .map(context::getType)
-          .nonNull()
-          .flatMap(type -> {
-            assert type != null; // see filter nonNull()
-            // An instance type has access to instance attributes defined in __init__, a class type does not.
-            final PyType instanceType = type instanceof PyClassLikeType ? ((PyClassLikeType)type).toInstance() : type;
-            final List<? extends RatedResolveResult> results = instanceType instanceof PyModuleType moduleType
-                                                               ? moduleType.resolveModuleMember(name, scopeOwner, AccessDirection.READ,
-                                                                                                resolveContext)
-                                                               : instanceType.resolveMember(name, null, AccessDirection.READ,
-                                                                                            resolveContext);
-
+          .flatMap(element -> {
+            List<? extends RatedResolveResult> results = null;
+            if (element instanceof PyTypedElement typedElement) {
+              PyType type = context.getType(typedElement);
+              if (type != null) {
+                // An instance type has access to instance attributes defined in __init__, a class type does not.
+                final PyType instanceType = type instanceof PyClassLikeType ? ((PyClassLikeType)type).toInstance() : type;
+                results = instanceType instanceof PyModuleType moduleType
+                          ? moduleType.resolveModuleMember(name, scopeOwner, AccessDirection.READ, resolveContext)
+                          : instanceType.resolveMember(name, null, AccessDirection.READ, resolveContext);
+              }
+            }
+            else if (element instanceof PsiDirectory dir) {
+              results = PyModuleType.resolveMemberInPackageOrModule(null, dir, name, scopeOwner, resolveContext);
+            }
             return results != null ? StreamEx.of(results) : StreamEx.<RatedResolveResult>empty();
           }))
       .toList();

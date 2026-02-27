@@ -367,4 +367,9 @@ internal class XDebuggerMonolithAccessPointImpl : XDebuggerMonolithAccessPoint {
   override fun asProxy(breakpoint: XBreakpoint<*>): XBreakpointProxy? {
     return (breakpoint as? XBreakpointBase<*, *, *>)?.asProxy()
   }
+
+  override suspend fun <T> withTemporaryXValueId(value: XValue, proxy: XDebugSessionProxy, block: suspend (XValueId) -> T): T {
+    val sessionImpl = getSession(proxy) as XDebugSessionImpl
+    return withTemporaryXValueIdImpl(value, sessionImpl, block)
+  }
 }

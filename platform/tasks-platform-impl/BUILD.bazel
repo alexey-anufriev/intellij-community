@@ -41,6 +41,7 @@ jvm_library(
     "//platform/bookmarks",
     "//platform/lang-api:lang",
     "//platform/xdebugger-impl/shared",
+    "//platform/xdebugger-impl/ui",
   ]
 )
 
@@ -77,6 +78,7 @@ jvm_library(
     "//platform/bookmarks:bookmarks_test_lib",
     "//platform/lang-api:lang_test_lib",
     "//platform/xdebugger-impl/shared:shared_test_lib",
+    "//platform/xdebugger-impl/ui:ui_test_lib",
   ]
 )
 ### auto-generated section `build intellij.platform.tasks.impl` end

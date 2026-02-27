@@ -3,17 +3,12 @@
 
   <dependencies>
     <!-- region Generated dependencies - run `Generate Product Layouts` to regenerate -->
+    <module name="intellij.agent.workbench.common"/>
     <module name="intellij.agent.workbench.chat"/>
+    <module name="intellij.agent.workbench.sessions.core"/>
     <module name="intellij.platform.compose"/>
     <!-- endregion -->
   </dependencies>
-
-  <extensionPoints>
-    <extensionPoint
-      qualifiedName="com.intellij.agent.workbench.sessionProviderBridge"
-      interface="com.intellij.agent.workbench.sessions.providers.AgentSessionProviderBridge"
-      dynamic="true"/>
-  </extensionPoints>
 
   <extensions defaultExtensionNs="com.intellij">
     <toolWindow
@@ -22,6 +17,8 @@
       icon="AllIcons.Toolwindows.ToolWindowMessages"
       canCloseContents="false"
       factoryClass="com.intellij.agent.workbench.sessions.AgentSessionsToolWindowFactory"/>
+    <notificationGroup id="Agent Workbench Sessions" displayType="BALLOON" bundle="messages.AgentSessionsBundle"
+                       key="notification.group.agent.workbench.sessions"/>
     <advancedSetting
       id="agent.workbench.chat.open.in.dedicated.frame"
       default="true"
@@ -32,6 +29,9 @@
     <statusBarWidgetFactory
       id="claude.quota"
       implementation="com.intellij.agent.workbench.sessions.claude.ClaudeQuotaStatusBarWidgetFactory"/>
+    <applicationService
+      serviceInterface="com.intellij.agent.workbench.sessions.core.AgentThreadQuickStartService"
+      serviceImplementation="com.intellij.agent.workbench.sessions.AgentThreadQuickStartServiceImpl"/>
   </extensions>
 
   <actions resource-bundle="messages.AgentSessionsBundle">
@@ -42,6 +42,21 @@
       <action id="AgentWorkbenchSessions.ToggleClaudeQuotaWidget" class="com.intellij.agent.workbench.sessions.AgentSessionsToggleClaudeQuotaWidgetAction"/>
       <action id="AgentWorkbenchSessions.Refresh" class="com.intellij.agent.workbench.sessions.AgentSessionsRefreshAction"/>
     </group>
+    <action
+      id="AgentWorkbenchSessions.SelectThreadInAgentThreads"
+      class="com.intellij.agent.workbench.sessions.AgentSessionsSelectThreadInToolWindowAction">
+      <add-to-group group-id="EditorTabPopupMenu" anchor="after" relative-to-action="CopyPaths"/>
+    </action>
+    <action
+      id="AgentWorkbenchSessions.ArchiveThreadFromEditorTab"
+      class="com.intellij.agent.workbench.sessions.AgentSessionsArchiveThreadFromEditorTabAction">
+      <add-to-group group-id="EditorTabPopupMenu" anchor="after" relative-to-action="AgentWorkbenchSessions.SelectThreadInAgentThreads"/>
+    </action>
+    <action
+      id="AgentWorkbenchSessions.CopyThreadIdFromEditorTab"
+      class="com.intellij.agent.workbench.sessions.AgentSessionsCopyThreadIdFromEditorTabAction">
+      <add-to-group group-id="EditorTabPopupMenu" anchor="after" relative-to-action="AgentWorkbenchSessions.ArchiveThreadFromEditorTab"/>
+    </action>
     <action
       id="AgentWorkbenchSessions.ActivateWithProjectShortcut"
       class="com.intellij.agent.workbench.sessions.AgentSessionsActivateWithProjectShortcutAction"

@@ -37,7 +37,7 @@ import javax.swing.tree.DefaultMutableTreeNode
  */
 
 //UX Designers don't place screenshots exactly at the center, but a bit higher than the middle horizontal line
-private const val MAGIC_VERTICAL_OFFSET = 7
+private const val MAGIC_VERTICAL_OFFSET = 12
 
 internal class CaptureScreenshotsPanel: UISandboxScreenshotPanel() {
   override val title = "Capture screenshots"

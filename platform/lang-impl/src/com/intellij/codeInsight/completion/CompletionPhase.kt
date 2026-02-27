@@ -34,7 +34,6 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.util.Pair
 import com.intellij.patterns.ElementPattern
-import com.intellij.platform.ide.productMode.IdeProductMode
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
 import com.intellij.psi.impl.source.tree.injected.InjectedLanguageEditorUtil
@@ -326,15 +325,15 @@ sealed class CompletionPhase @ApiStatus.Internal constructor(
         editor: Editor,
         invocationCount: Int,
       ) {
-        if (NewRdCompletionSupport.isFrontendRdCompletionOn() && IdeProductMode.isBackend) {
-          // todo we can set up backend completion session right away without doing round trip to frontend
-          NewRdCompletionSupport.getInstance().scheduleAutopopup(project, editor, completionType)
+
+        // todo we can set up backend completion session right away without doing round trip to frontend
+        if (NewRdCompletionSupport.getInstance().scheduleAutopopupOnFrontend(project, editor, completionType)) {
           CompletionServiceImpl.setCompletionPhase(NoCompletion)
+          return
         }
-        else {
-          val handler = CodeCompletionHandlerBase.createHandler(completionType, false, isAutopopup, false)
-          handler.invokeCompletion(project, editor, invocationCount, false)
-        }
+
+        val handler = CodeCompletionHandlerBase.createHandler(completionType, false, isAutopopup, false)
+        handler.invokeCompletion(project, editor, invocationCount, false)
       }
 
       @RequiresEdt

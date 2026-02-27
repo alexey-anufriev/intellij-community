@@ -17,6 +17,7 @@ import com.intellij.platform.debugger.impl.rpc.XBreakpointDtoState
 import com.intellij.platform.debugger.impl.rpc.XBreakpointId
 import com.intellij.platform.debugger.impl.rpc.toRpc
 import com.intellij.platform.debugger.impl.rpc.xExpression
+import com.intellij.platform.debugger.impl.shared.XBreakpointInterLinePlacementDetector
 import com.intellij.platform.debugger.impl.shared.proxy.XBreakpointProxy
 import com.intellij.platform.debugger.impl.shared.proxy.XBreakpointTypeProxy
 import com.intellij.platform.debugger.impl.shared.proxy.XLineBreakpointTypeProxy
@@ -28,7 +29,7 @@ import com.intellij.xdebugger.breakpoints.SuspendPolicy
 import com.intellij.xdebugger.evaluation.XDebuggerEditorsProvider
 import com.intellij.xdebugger.impl.breakpoints.BreakpointGutterIconRenderer
 import com.intellij.xdebugger.impl.breakpoints.CustomizedBreakpointPresentation
-import com.intellij.xdebugger.impl.breakpoints.XBreakpointBase.calculateIcon
+import com.intellij.xdebugger.impl.breakpoints.XBreakpointUIUtil
 import com.intellij.xdebugger.impl.rpc.sourcePosition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
@@ -206,7 +207,7 @@ internal open class FrontendXBreakpointProxy(
 
   override fun getIcon(): Icon {
     // TODO: do we need to cache icon like it is done in XBreakpointBase
-    return calculateIcon(this)
+    return XBreakpointUIUtil.calculateIcon(this)
   }
 
   override fun isEnabled(): Boolean = currentState.enabled
@@ -237,6 +238,12 @@ internal open class FrontendXBreakpointProxy(
                         copy = { it.copy(suspendPolicy = suspendPolicy) }) { requestId ->
       XBreakpointApi.getInstance().setSuspendPolicy(id, requestId, suspendPolicy)
     }
+  }
+
+  override fun supportsInterLinePlacement(): Boolean {
+    val lineType = type as? XLineBreakpointTypeProxy ?: return false
+    if (!lineType.supportsInterLinePlacement()) return false
+    return XBreakpointInterLinePlacementDetector.shouldBePlacedBetweenLines(this)
   }
 
   override fun getTimestamp(): Long = currentState.timestamp
@@ -352,10 +359,6 @@ internal open class FrontendXBreakpointProxy(
 
   override fun isDisposed(): Boolean {
     return !cs.isActive
-  }
-
-  override fun updateIcon() {
-    // TODO IJPL-185322 should we cache icon like in Monolith?
   }
 
   override fun createGutterIconRenderer(): GutterIconRenderer? {

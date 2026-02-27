@@ -34,6 +34,7 @@ import com.intellij.openapi.ui.popup.LightweightWindowEvent;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.TextRange;
+import com.intellij.platform.debugger.impl.ui.evaluate.quick.common.ValueLookupManager;
 import com.intellij.ui.AppUIUtil;
 import com.intellij.ui.ClickListener;
 import com.intellij.ui.HintHint;
@@ -54,7 +55,6 @@ import com.intellij.xdebugger.frame.XFullValueEvaluator;
 import com.intellij.xdebugger.frame.XValue;
 import com.intellij.xdebugger.frame.presentation.XValuePresentation;
 import com.intellij.xdebugger.impl.actions.XDebuggerActions;
-import com.intellij.xdebugger.impl.evaluate.ValueLookupManagerController;
 import com.intellij.xdebugger.impl.evaluate.quick.XDebuggerTreeCreator;
 import com.intellij.xdebugger.impl.ui.DebuggerUIUtil;
 import com.intellij.xdebugger.impl.ui.ExecutionPointHighlighter;
@@ -93,7 +93,7 @@ public abstract class AbstractValueHint {
     @Override
     public void keyReleased(KeyEvent e) {
       if (!isAltMask(e.getModifiers())) {
-        ValueLookupManagerController.getInstance(myProject).hideHint();
+        ValueLookupManager.getInstance(myProject).hideHint();
       }
     }
   };
@@ -357,12 +357,17 @@ public abstract class AbstractValueHint {
   protected SimpleColoredComponent fillSimpleColoredComponent(SimpleColoredComponent component,
                                                               Icon icon,
                                                               final SimpleColoredText text,
-                                                              @Nullable XFullValueEvaluator evaluator) {
+                                                              @Nullable XFullValueEvaluator evaluator,
+                                                              @Nullable XDebuggerTreeNodeHyperlink link) {
     HintUtil.installInformationProperties(component);
     component.setIcon(icon);
     component.setCursor(hintCursor());
     text.appendToComponent(component);
-    appendEvaluatorLink(evaluator, component);
+    if (link != null) {
+      appendAdditionalHyperlink(link, component);
+    } else if (evaluator != null) {
+      appendEvaluatorLink(evaluator, component);
+    }
     return component;
   }
 
@@ -370,7 +375,7 @@ public abstract class AbstractValueHint {
                                                                  final SimpleColoredText text,
                                                                  final Runnable expand,
                                                                  @Nullable XFullValueEvaluator evaluator) {
-    return createExpandableHintComponent(icon, text, expand, evaluator, null);
+    return createExpandableHintComponent(icon, text, expand, evaluator, null, null);
   }
 
   @ApiStatus.Internal
@@ -378,12 +383,13 @@ public abstract class AbstractValueHint {
                                                                  final SimpleColoredText text,
                                                                  final Runnable expand,
                                                                  @Nullable XFullValueEvaluator evaluator,
-                                                                 @Nullable XValuePresentation valuePresenter) {
+                                                                 @Nullable XValuePresentation valuePresenter,
+                                                                 @Nullable XDebuggerTreeNodeHyperlink link) {
     Icon notNullIcon = icon != null
                        ? IconManager.getInstance().createRowIcon(UIUtil.getTreeCollapsedIcon(), icon)
                        : UIUtil.getTreeCollapsedIcon();
 
-    SimpleColoredComponent component = fillSimpleColoredComponent(createComponent(valuePresenter), notNullIcon, text, evaluator);
+    SimpleColoredComponent component = fillSimpleColoredComponent(createComponent(valuePresenter), notNullIcon, text, evaluator, link);
     new ClickListener() {
       @Override
       public boolean onClick(@NotNull MouseEvent e, int clickCount) {
@@ -416,21 +422,29 @@ public abstract class AbstractValueHint {
     return component;
   }
 
-  protected final void appendEvaluatorLink(@Nullable XFullValueEvaluator evaluator, SimpleColoredComponent component) {
-    if (evaluator != null) {
-      component.append(
-        evaluator.getLinkText(),
-        XDebuggerTreeNodeHyperlink.TEXT_ATTRIBUTES,
-        (Consumer<MouseEvent>)event -> {
-          if (evaluator.isShowValuePopup()) {
-            DebuggerUIUtil.showValuePopup(evaluator, event, getProject(), getEditor());
-          }
-          else {
-            new HeadlessValueEvaluationCallbackBase(getProject()).startFetchingValue(evaluator);
-          }
+  protected final void appendEvaluatorLink(@NotNull XFullValueEvaluator evaluator, SimpleColoredComponent component) {
+    component.append(
+      evaluator.getLinkText(),
+      XDebuggerTreeNodeHyperlink.TEXT_ATTRIBUTES,
+      (Consumer<MouseEvent>)event -> {
+        if (evaluator.isShowValuePopup()) {
+          DebuggerUIUtil.showValuePopup(evaluator, event, getProject(), getEditor());
         }
-      );
-    }
+        else {
+          new HeadlessValueEvaluationCallbackBase(getProject()).startFetchingValue(evaluator);
+        }
+      }
+    );
+  }
+
+  protected static void appendAdditionalHyperlink(@NotNull XDebuggerTreeNodeHyperlink link, SimpleColoredComponent component) {
+    component.append(
+      link.getLinkText(),
+      link.getTextAttributes(),
+      (Consumer<MouseEvent>)event -> {
+        link.onClick(event);
+      }
+    );
   }
 
   protected @Nullable TextRange getCurrentRange() {

@@ -67,6 +67,7 @@ import org.jetbrains.plugins.terminal.block.ui.TerminalUiUtils
 import org.jetbrains.plugins.terminal.fus.ReworkedTerminalUsageCollector
 import org.jetbrains.plugins.terminal.fus.TerminalOpeningWay
 import org.jetbrains.plugins.terminal.fus.TerminalStartupFusInfo
+import org.jetbrains.plugins.terminal.startup.TerminalProcessType
 import java.lang.ref.WeakReference
 import kotlin.time.Duration.Companion.seconds
 
@@ -339,6 +340,8 @@ internal class TerminalToolWindowTabsManagerImpl(
     val baseOptions = ShellStartupOptions.Builder()
       .shellCommand(builder.shellCommand)
       .workingDirectory(builder.workingDirectory)
+      .envVariables(builder.envVariables)
+      .processType(builder.processType)
 
     return if (calculateSizeFromComponent) {
       withContext(Dispatchers.UI + ModalityState.any().asContextElement()) {
@@ -417,6 +420,8 @@ internal class TerminalToolWindowTabsManagerImpl(
         with(builder) {
           shellCommand(tab.shellCommand)
           workingDirectory(tab.workingDirectory)
+          envVariables(tab.envVariables ?: emptyMap())
+          processType(tab.processType ?: TerminalProcessType.SHELL)
           tabName(tab.name)
           userDefinedName(tab.isUserDefinedName)
           backendTabId(tab.id)
@@ -441,6 +446,10 @@ internal class TerminalToolWindowTabsManagerImpl(
     var workingDirectory: String? = null
       private set
     var shellCommand: List<String>? = null
+      private set
+    var envVariables: Map<String, String> = emptyMap()
+      private set
+    var processType: TerminalProcessType = TerminalProcessType.SHELL
       private set
     var tabName: String? = null
       private set
@@ -471,6 +480,16 @@ internal class TerminalToolWindowTabsManagerImpl(
 
     override fun shellCommand(command: List<String>?): TerminalToolWindowTabBuilder {
       shellCommand = command
+      return this
+    }
+
+    override fun envVariables(envs: Map<String, String>): TerminalToolWindowTabBuilder {
+      envVariables = envs
+      return this
+    }
+
+    override fun processType(processType: TerminalProcessType): TerminalToolWindowTabBuilder {
+      this.processType = processType
       return this
     }
 

@@ -1,6 +1,7 @@
 // Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.openapi.editor.impl
 
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.WriteIntentReadAction
 import com.intellij.openapi.application.isEditorLockFreeTypingEnabled
 import com.intellij.openapi.editor.EditorThreading
@@ -38,7 +39,7 @@ class EditorThreadingImpl : EditorThreading {
   }
 
   override fun <T, E : Throwable> doComputeWritable(action: ThrowableComputable<T, E>): T {
-    return if (EDT.isCurrentThreadEdt() && isEditorLockFreeTypingEnabled) {
+    return if (isLockFreeTypingAllowed()) {
       action.compute()
     }
     else {
@@ -47,7 +48,7 @@ class EditorThreadingImpl : EditorThreading {
   }
 
   override fun doRunWritable(action: Runnable) {
-    if (EDT.isCurrentThreadEdt() && isEditorLockFreeTypingEnabled) {
+    if (isLockFreeTypingAllowed()) {
       action.run()
     }
     else {
@@ -56,17 +57,32 @@ class EditorThreadingImpl : EditorThreading {
   }
 
   override fun doAssertWriteAllowed() {
-    if (!(EDT.isCurrentThreadEdt() && isEditorLockFreeTypingEnabled)) {
+    if (!(isLockFreeTypingAllowed())) {
       ThreadingAssertions.assertWriteAccess()
     }
   }
 
   override fun doWrite(action: Runnable) {
-    if (EDT.isCurrentThreadEdt() && isEditorLockFreeTypingEnabled) {
+    if (isLockFreeTypingAllowed() && isNonModal()) {
       action.run()
     }
     else {
       application.runWriteAction(action)
     }
+  }
+
+  private fun isLockFreeTypingAllowed(): Boolean {
+    return isEditorLockFreeTypingEnabled && EDT.isCurrentThreadEdt()
+  }
+
+  /**
+   * Modal dialogs hold WIL on EDT preventing BGT WA to be started.
+   * See usages of [com.intellij.openapi.ui.impl.AbstractDialog.show].
+   * It means if an editor is inside a modal dialog (e.g., Create Branch from <branch>),
+   * then the corresponding ui document can't be synced with the real one until the editor is closed,
+   * which makes no sense.
+   */
+  private fun isNonModal(): Boolean {
+    return ModalityState.current() == ModalityState.nonModal()
   }
 }

@@ -7,7 +7,7 @@ import com.intellij.testFramework.fixtures.TestLookupElementPresentation
 import com.intellij.testFramework.runInEdtAndWait
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.AbstractGradleCodeInsightTest
-import org.jetbrains.kotlin.gradle.AbstractKotlinGradleNavigationTest.Companion.GRADLE_KMP_KOTLIN_FIXTURE
+import org.jetbrains.kotlin.gradle.GRADLE_KMP_KOTLIN_FIXTURE
 import org.jetbrains.kotlin.idea.test.Directives
 import org.jetbrains.kotlin.idea.test.TestFiles
 import org.jetbrains.plugins.gradle.testFramework.GradleTestFixtureBuilder

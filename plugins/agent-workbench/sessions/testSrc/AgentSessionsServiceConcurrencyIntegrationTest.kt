@@ -1,6 +1,7 @@
 // Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.agent.workbench.sessions
 
+import com.intellij.agent.workbench.sessions.core.AgentSessionProvider
 import com.intellij.testFramework.junit5.TestApplication
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
@@ -11,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger
 @TestApplication
 class AgentSessionsServiceConcurrencyIntegrationTest {
   @Test
-  fun refreshIgnoresConcurrentRequestWhileRefreshInProgress() = runBlocking {
+  fun refreshCoalescesConcurrentRequestsAndRunsFollowUpRefresh() = runBlocking {
     val openInvocationCount = AtomicInteger(0)
     val started = CompletableDeferred<Unit>()
     val release = CompletableDeferred<Unit>()
@@ -48,7 +49,7 @@ class AgentSessionsServiceConcurrencyIntegrationTest {
         service.state.value.projects.firstOrNull { it.path == PROJECT_PATH }?.hasLoaded == true
       }
 
-      assertThat(openInvocationCount.get()).isEqualTo(1)
+      assertThat(openInvocationCount.get()).isEqualTo(2)
     }
   }
 }

@@ -39,6 +39,10 @@ com.intellij.xdebugger.attach.XLocalAttachDebugger
 a:com.intellij.xdebugger.impl.actions.handlers.XDebuggerActionHandler
 - pa:isEnabled(com.intellij.xdebugger.XDebugSession,com.intellij.openapi.actionSystem.DataContext):Z
 - pa:perform(com.intellij.xdebugger.XDebugSession,com.intellij.openapi.actionSystem.DataContext):V
+f:com.intellij.xdebugger.impl.ui.XDebugSessionTabCustomizerKt
+- sf:allowFramesViewCustomization(com.intellij.xdebugger.XDebugProcess):Z
+- sf:forceShowNewDebuggerUi(com.intellij.xdebugger.XDebugProcess):Z
+- sf:getBottomLocalsComponentProvider(com.intellij.xdebugger.XDebugProcess):com.intellij.xdebugger.impl.ui.SessionTabComponentProvider
 com.intellij.xdebugger.impl.ui.attach.dialog.AttachHostItem
 - a:getHost():com.intellij.xdebugger.attach.XAttachHost
 - a:getIcon():javax.swing.Icon

@@ -1132,14 +1132,13 @@ public class Py3TypeTest extends PyTestCase {
   }
 
   public void testNumpyResolveRaterDoesNotIncreaseRateForNotNdarrayRightOperatorFoundInStub() {
-    myFixture.copyDirectoryToProject(TEST_DIRECTORY + getTestName(false), "");
-    doTest("D1 | D2",
-           """
-             class D1(object):
-                 pass
-             class D2(object):
-                 pass
-             expr = D1() / D2()""");
+    doMultiFileTest("D1 | D2",
+                    """
+                      class D1(object):
+                          pass
+                      class D2(object):
+                          pass
+                      expr = D1() / D2()""");
   }
 
   // PY-22181
@@ -1241,33 +1240,31 @@ public class Py3TypeTest extends PyTestCase {
 
   // PY-21655
   public void testUsageOfFunctionDecoratedWithAsyncioCoroutine() {
-    myFixture.copyDirectoryToProject(TEST_DIRECTORY + getTestName(false), "");
-    doTest("int",
-           """
-             import asyncio
-             @asyncio.coroutine
-             def foo():
-                 yield from asyncio.sleep(1)
-                 return 3
-             async def bar():
-                 expr = await foo()
-                 return expr""");
+    doMultiFileTest("int",
+                    """
+                      import asyncio
+                      @asyncio.coroutine
+                      def foo():
+                          yield from asyncio.sleep(1)
+                          return 3
+                      async def bar():
+                          expr = await foo()
+                          return expr""");
   }
 
   // PY-21655
   public void testUsageOfFunctionDecoratedWithTypesCoroutine() {
-    myFixture.copyDirectoryToProject(TEST_DIRECTORY + getTestName(false), "");
-    doTest("int",
-           """
-             import asyncio
-             import types
-             @types.coroutine
-             def foo():
-                 yield from asyncio.sleep(1)
-                 return 3
-             async def bar():
-                 expr = await foo()
-                 return expr""");
+    doMultiFileTest("int",
+                    """
+                      import asyncio
+                      import types
+                      @types.coroutine
+                      def foo():
+                          yield from asyncio.sleep(1)
+                          return 3
+                      async def bar():
+                          expr = await foo()
+                          return expr""");
   }
 
   // PY-22513
@@ -4566,6 +4563,15 @@ public class Py3TypeTest extends PyTestCase {
 
   // PY-86928
   public void testProperlyImportedQualifiedNameInTypeHint() {
+    doMultiFileTest("MyClass", """
+      from lib import f
+      
+      expr = f()
+      """);
+  }
+
+  // PY-86928
+  public void testProperlyImportedQualifiedNameFromNamespacePackageInTypeHint() {
     doMultiFileTest("MyClass", """
       from lib import f
       

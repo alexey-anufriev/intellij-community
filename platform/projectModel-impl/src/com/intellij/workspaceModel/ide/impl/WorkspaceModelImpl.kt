@@ -337,13 +337,7 @@ open class WorkspaceModelImpl : WorkspaceModelInternal {
       updatesCounter.incrementAndGet()
     }
 
-    log.debug("Project model updated silently to version ${entityStorage.pointer.version} in $generalTime ms: $description")
-    if (generalTime > 1000) {
-      log.info("Project model update details: Updater code: $updateTimeMillis ms, To snapshot: $toSnapshotTimeMillis m")
-    }
-    else {
-      log.debug { "Project model update details: Updater code: $updateTimeMillis ms, To snapshot: $toSnapshotTimeMillis m" }
-    }
+    log.info("Project model updated silently to version ${entityStorage.pointer.version} in $generalTime ms: $description")
   }
 
   /**
@@ -662,13 +656,5 @@ private fun isProjectCaseSensitive(project: Project): Boolean {
   }
 
   val historicalProjectBasePath = project.componentStore.storeDescriptor.historicalProjectBasePath
-  val ioFile = try {
-    @Suppress("IO_FILE_USAGE")
-    historicalProjectBasePath.toFile()
-  }
-  catch (_: UnsupportedOperationException) {
-    // memory file system does not support #toFile()
-    return false
-  }
-  return FileSystemUtil.readParentCaseSensitivity(ioFile) == FileAttributes.CaseSensitivity.SENSITIVE
+  return FileSystemUtil.readParentCaseSensitivity(historicalProjectBasePath) == FileAttributes.CaseSensitivity.SENSITIVE
 }

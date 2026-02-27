@@ -27,6 +27,12 @@ internal class FrontendXExecutionStack(
   private val project: Project,
   private val suspendContextLifetimeScope: CoroutineScope,
 ) : XExecutionStack(stackDto.displayName, stackDto.icon?.icon()) {
+  init {
+    suspendContextLifetimeScope.launch {
+      stackDto.iconFlow.toFlow().collect { iconId -> icon = iconId?.icon() }
+    }
+  }
+
   val id: XExecutionStackId = stackDto.executionStackId
 
   private val topValue: CompletableFuture<XStackFrame?> = stackDto.topFrame.asCompletableFuture().thenApply<XStackFrame> { frameDto ->

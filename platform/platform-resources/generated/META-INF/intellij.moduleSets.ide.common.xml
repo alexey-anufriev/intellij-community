@@ -52,11 +52,17 @@
     <module name="intellij.libraries.imgscalr" loading="embedded"/>
     <module name="intellij.libraries.ini4j" loading="embedded"/>
     <module name="intellij.libraries.ion" loading="embedded"/>
+    <module name="intellij.libraries.jackson.annotations" loading="embedded"/>
     <module name="intellij.libraries.jackson" loading="embedded"/>
     <module name="intellij.libraries.jackson.jr.objects" loading="embedded"/>
     <module name="intellij.libraries.jackson.databind" loading="embedded"/>
     <module name="intellij.libraries.jackson.dataformat.yaml" loading="embedded"/>
     <module name="intellij.libraries.jackson.module.kotlin" loading="embedded"/>
+    <module name="intellij.libraries.jackson3" loading="embedded"/>
+    <module name="intellij.libraries.jackson3.jr.objects" loading="embedded"/>
+    <module name="intellij.libraries.jackson3.databind" loading="embedded"/>
+    <module name="intellij.libraries.jackson3.dataformat.yaml" loading="embedded"/>
+    <module name="intellij.libraries.jackson3.module.kotlin" loading="embedded"/>
     <module name="intellij.libraries.java.websocket" loading="embedded"/>
     <module name="intellij.libraries.javax.annotation" loading="embedded"/>
     <module name="intellij.libraries.jaxen" loading="embedded"/>
@@ -246,6 +252,8 @@
     <module name="intellij.platform.navbar.frontend"/>
     <module name="intellij.platform.navbar.monolith"/>
     <module name="intellij.platform.clouds"/>
+    <module name="intellij.platform.structureView.backend"/>
+    <module name="intellij.platform.structureView.frontend"/>
     <module name="intellij.platform.execution.serviceView"/>
     <module name="intellij.platform.execution.serviceView.frontend"/>
     <module name="intellij.platform.execution.serviceView.backend"/>
@@ -395,6 +403,7 @@
     <module name="intellij.libraries.grpc.netty.shaded"/>
     <module name="intellij.libraries.jspecify"/>
     <module name="intellij.platform.structuralSearch"/>
+    <module name="intellij.libraries.batik" loading="embedded"/>
     <!-- endregion -->
   </content>
 </idea-plugin>

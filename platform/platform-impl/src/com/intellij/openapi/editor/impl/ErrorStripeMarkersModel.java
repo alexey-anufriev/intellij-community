@@ -1,4 +1,4 @@
-// Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.openapi.editor.impl;
 
 import com.intellij.codeInsight.daemon.impl.HighlightInfo;
@@ -76,7 +76,7 @@ final class ErrorStripeMarkersModel {
   private int countErrorStripeMarkers(@NotNull MarkupModel model) {
     AtomicInteger c = new AtomicInteger();
     try (MarkupIterator<RangeHighlighterEx> iterator =
-      ((MarkupModelEx)model).overlappingErrorStripeIterator(0, model.getDocument().getTextLength())) {
+      ((MarkupModelEx)model).overlappingErrorStripeIterator(0, myEditor.getUiDocument().getTextLength())) {
       ContainerUtil.process(iterator, __ -> c.getAndIncrement() >= 0);
     }
     return c.get();

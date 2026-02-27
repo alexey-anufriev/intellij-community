@@ -15,6 +15,7 @@ import java.io.OutputStreamWriter
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 
 private data class ThreadEntry(
   val id: String,
@@ -48,6 +49,7 @@ internal object CodexTestAppServer {
   private const val CWD_MARKER_ENV = "CODEX_TEST_CWD_MARKER"
   private const val ERROR_METHOD_ENV = "CODEX_TEST_ERROR_METHOD"
   private const val ERROR_MESSAGE_ENV = "CODEX_TEST_ERROR_MESSAGE"
+  private const val REQUEST_LOG_ENV = "CODEX_TEST_REQUEST_LOG"
 
   @JvmStatic
   fun main(args: Array<String>) {
@@ -56,6 +58,7 @@ internal object CodexTestAppServer {
     val threads = loadThreads(configPath)
     val errorMethod = readEnv(ERROR_METHOD_ENV)
     val errorMessage = readEnv(ERROR_MESSAGE_ENV)
+    val requestLogPath = readEnv(REQUEST_LOG_ENV)?.let(Path::of)
     readEnv(CWD_MARKER_ENV)?.let(::writeWorkingDirectoryMarker)
     val reader = BufferedReader(InputStreamReader(System.`in`, StandardCharsets.UTF_8))
     val writer = BufferedWriter(OutputStreamWriter(System.out, StandardCharsets.UTF_8))
@@ -70,6 +73,7 @@ internal object CodexTestAppServer {
         null
       }
       if (request == null) continue
+      requestLogPath?.let { appendRequestLog(it, request.method) }
       if (errorMethod != null && request.method == errorMethod) {
         writeResponse(writer, request.id, ::writeEmptyObject, errorMessage = errorMessage ?: "Forced error")
         continue
@@ -348,41 +352,58 @@ private fun startThread(threads: MutableList<ThreadEntry>): ThreadEntry {
   return thread
 }
 
-  private fun updateArchive(id: String?, threads: MutableList<ThreadEntry>, archive: Boolean) {
-    if (id == null) return
-    val thread = threads.firstOrNull { it.id == id } ?: return
-    thread.archived = archive
-    thread.updatedAt = System.currentTimeMillis()
-    if (thread.updatedAtField.isNullOrBlank()) {
-      thread.updatedAtField = "updated_at"
-    }
-  }
+}
 
-  private fun readEnv(name: String): String? {
-    return System.getenv(name)?.trim()?.takeIf { it.isNotEmpty() }
+private fun updateArchive(id: String?, threads: MutableList<ThreadEntry>, archive: Boolean) {
+  if (id == null) return
+  val thread = threads.firstOrNull { it.id == id } ?: return
+  thread.archived = archive
+  thread.updatedAt = System.currentTimeMillis()
+  if (thread.updatedAtField.isNullOrBlank()) {
+    thread.updatedAtField = "updated_at"
   }
+}
 
-  private fun writeWorkingDirectoryMarker(marker: String) {
-    try {
-      val markerPath = Path.of(marker)
-      val cwd = System.getProperty("user.dir")
-      Files.writeString(markerPath, cwd, StandardCharsets.UTF_8)
-    }
-    catch (_: Throwable) {
-    }
+private fun readEnv(name: String): String? {
+  return System.getenv(name)?.trim()?.takeIf { it.isNotEmpty() }
+}
+
+private fun appendRequestLog(path: Path, method: String) {
+  try {
+    path.parent?.let(Files::createDirectories)
+    Files.writeString(
+      path,
+      "$method\n",
+      StandardCharsets.UTF_8,
+      StandardOpenOption.CREATE,
+      StandardOpenOption.WRITE,
+      StandardOpenOption.APPEND,
+    )
   }
+  catch (_: Throwable) {
+  }
+}
 
-  private fun readBooleanOrNull(parser: JsonParser): Boolean? {
-    return when (parser.currentToken) {
-      JsonToken.VALUE_TRUE -> true
-      JsonToken.VALUE_FALSE -> false
-      JsonToken.VALUE_NUMBER_INT -> parser.intValue != 0
-      JsonToken.VALUE_STRING -> parser.text.toBoolean()
-      JsonToken.VALUE_NULL -> null
-      else -> {
-        parser.skipChildren()
-        null
-      }
+private fun writeWorkingDirectoryMarker(marker: String) {
+  try {
+    val markerPath = Path.of(marker)
+    val cwd = System.getProperty("user.dir")
+    Files.writeString(markerPath, cwd, StandardCharsets.UTF_8)
+  }
+  catch (_: Throwable) {
+  }
+}
+
+private fun readBooleanOrNull(parser: JsonParser): Boolean? {
+  return when (parser.currentToken) {
+    JsonToken.VALUE_TRUE -> true
+    JsonToken.VALUE_FALSE -> false
+    JsonToken.VALUE_NUMBER_INT -> parser.intValue != 0
+    JsonToken.VALUE_STRING -> parser.text.toBoolean()
+    JsonToken.VALUE_NULL -> null
+    else -> {
+      parser.skipChildren()
+      null
     }
   }
 }

@@ -31,7 +31,6 @@ jvm_library(
   srcs = glob([], allow_empty = True),
   runtime_deps = [
     ":resources",
-    "//platform/main/intellij.platform.monolith.main:monolith-main",
     "//platform/platform-impl/concurrency:concurrency_test_lib",
   ]
 )

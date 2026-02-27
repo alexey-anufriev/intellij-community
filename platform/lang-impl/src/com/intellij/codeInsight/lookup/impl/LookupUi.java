@@ -92,6 +92,7 @@ final class LookupUi {
   private final @Nullable JComponent myBottomPanel;
 
   private int myMaximumHeight = Integer.MAX_VALUE;
+  private int myPreventShrinkMinHeight = 0;
   private Boolean myPositionedAbove = null;
 
   LookupUi(@NotNull LookupImpl lookup, Advertiser advertiser, JBList<?> list, boolean showBottomPanel) {
@@ -256,21 +257,32 @@ final class LookupUi {
       return;
     }
 
-    if (lookup.myResizePending || itemsChanged) {
-      myMaximumHeight = Integer.MAX_VALUE;
+    // Check if we should prevent shrinking for this refresh cycle
+    if (LookupShrinkSuppressor.takePreventShrinkOnce(lookup) && lookup.getComponent().isShowing()) {
+      myPreventShrinkMinHeight = lookup.getComponent().getHeight();
     }
-    Rectangle rectangle = calculatePosition();
-    myMaximumHeight = rectangle.height;
 
-    if (lookup.myResizePending || itemsChanged) {
-      lookup.myResizePending = false;
-      lookup.pack();
-      rectangle = calculatePosition();
+    try {
+      if (lookup.myResizePending || itemsChanged) {
+        myMaximumHeight = Integer.MAX_VALUE;
+      }
+      Rectangle rectangle = calculatePosition();
+      myMaximumHeight = rectangle.height;
+
+      if (lookup.myResizePending || itemsChanged) {
+        lookup.myResizePending = false;
+        lookup.pack();
+        rectangle = calculatePosition();
+      }
+      lookup.updateLocation(rectangle.getLocation());
+
+      if (reused || selectionVisible || onExplicitAction) {
+        lookup.ensureSelectionVisible(false);
+      }
     }
-    lookup.updateLocation(rectangle.getLocation());
-
-    if (reused || selectionVisible || onExplicitAction) {
-      lookup.ensureSelectionVisible(false);
+    finally {
+      // Reset the minimum height after the refresh cycle (one-shot)
+      myPreventShrinkMinHeight = 0;
     }
   }
 
@@ -436,6 +448,8 @@ final class LookupUi {
           int width = Math.max(listWidth, bottomPanelSize.width);
           width = Math.min(width, Registry.intValue("ide.completion.max.width"));
           int height = Math.min(panelHeight, myMaximumHeight);
+          // Apply minimum height to prevent shrinking when the flag is set
+          height = Math.max(height, myPreventShrinkMinHeight);
 
           return new Dimension(width, height);
         }

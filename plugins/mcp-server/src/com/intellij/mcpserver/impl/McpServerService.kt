@@ -417,7 +417,6 @@ class McpServerService(val cs: CoroutineScope) {
               newTools = filteredTools
             )
           }
-
         }
 
         session.onInitialized {
@@ -459,7 +458,7 @@ class McpServerService(val cs: CoroutineScope) {
    *
    * @return the new tools list to be stored as previousTools
    */
-  private fun updateMcpServerTools(
+  private suspend fun updateMcpServerTools(
     mcpServer: Server,
     session: ServerSession,
     projectPath: String?,
@@ -479,7 +478,7 @@ class McpServerService(val cs: CoroutineScope) {
     val toolNamesToAdd = newToolNames - previousToolNames
     val toolsToAdd = newTools.filter { it.descriptor.name in toolNamesToAdd }
     if (toolsToAdd.isNotEmpty()) {
-      mcpServer.addTools(toolsToAdd.map { it.mcpToolToRegisteredTool(mcpServer, session, projectPath) })
+      mcpServer.addTools(toolsToAdd.map { mcpToolToRegisteredTool(it, session, projectPath) })
     }
 
     return newTools
@@ -525,12 +524,12 @@ class McpServerService(val cs: CoroutineScope) {
     return context.allowedTools.toList()
   }
 
-  private fun McpTool.mcpToolToRegisteredTool(
-    server: Server,
+  private suspend fun mcpToolToRegisteredTool(
+    mcpTool: McpTool,
     session: ServerSession,
     projectPathFromInitialRequest: String?,
   ): RegisteredTool {
-    val tool = toSdkTool()
+    val tool = mcpTool.toSdkTool()
     return RegisteredTool(tool) { request ->
       val httpRequest = currentCoroutineContext().httpRequestOrNull
       val projectPathFromHeaders =
@@ -562,14 +561,14 @@ class McpServerService(val cs: CoroutineScope) {
         }
       }
       catch (tce: TimeoutCancellationException) {
-        logger.trace { "Calling of tool '${descriptor.name}' has been timed out: ${tce.message}" }
-        return@RegisteredTool McpToolCallResult.error(errorMessage = "Calling of tool '${descriptor.name}' has been timed out: ${tce.message}")
+        logger.trace { "Calling of tool '${mcpTool.descriptor.name}' has been timed out: ${tce.message}" }
+        return@RegisteredTool McpToolCallResult.error(errorMessage = "Calling of tool '${mcpTool.descriptor.name}' has been timed out: ${tce.message}")
           .toSdkToolCallResult()
       }
       // handle it here because it incorrectly handled in the MCP SDK
       catch (ce: CancellationException) {
         //logger.trace { "Calling of tool '${descriptor.name}' has been cancelled: ${ce.message}" }
-        return@RegisteredTool McpToolCallResult.error(errorMessage = "Calling of tool '${descriptor.name}' has been cancelled: ${ce.message}")
+        return@RegisteredTool McpToolCallResult.error(errorMessage = "Calling of tool '${mcpTool.descriptor.name}' has been cancelled: ${ce.message}")
           .toSdkToolCallResult()
       }
       catch (mcpError: McpExpectedError) {
@@ -596,7 +595,7 @@ class McpServerService(val cs: CoroutineScope) {
         callId = callId.getAndAdd(1),
         clientInfo = ClientInfo(clientVersion.name, clientVersion.version),
         project = project,
-        mcpToolDescriptor = descriptor,
+        mcpToolDescriptor = mcpTool.descriptor,
         rawArguments = request.arguments ?: EmptyJsonObject,
         meta = request.meta?.json ?: EmptyJsonObject,
         mcpSessionOptions = sessionOptions,
@@ -634,7 +633,7 @@ class McpServerService(val cs: CoroutineScope) {
         ) {
           val span = getTracer().spanBuilder("mcp.tool.call", TracerLevel.DEFAULT)
             .setAllAttributes(Attributes.builder()
-                                .put("mcp.tool.name", descriptor.name)
+                                .put("mcp.tool.name", mcpTool.descriptor.name)
                                 .put("mcp.client.name", clientVersion.name)
                                 .put("mcp.client.version", clientVersion.version)
                                 .put("mcp.call.id", additionalData.callId.toLong())
@@ -648,9 +647,9 @@ class McpServerService(val cs: CoroutineScope) {
               @Suppress("IncorrectCancellationExceptionHandling")
               try {
                 application.messageBus.syncPublisher(ToolCallListener.TOPIC)
-                  .beforeMcpToolCall(this@mcpToolToRegisteredTool.descriptor, additionalData)
+                  .beforeMcpToolCall(mcpTool.descriptor, additionalData)
 
-                logger.trace { "Start calling tool '${this@mcpToolToRegisteredTool.descriptor.name}'. Arguments: ${request.arguments}" }
+                logger.trace { "Start calling tool '${mcpTool.descriptor.name}'. Arguments: ${request.arguments}" }
 
                 span.addEvent("mcp.tool.call.started",
                               Attributes.of(
@@ -658,10 +657,10 @@ class McpServerService(val cs: CoroutineScope) {
                                 request.arguments?.size?.toString() ?: "0"
                               ))
 
-                val result = this@mcpToolToRegisteredTool.call(request.arguments ?: EmptyJsonObject)
+                val result = mcpTool.call(request.arguments ?: EmptyJsonObject)
 
                 logger.trace {
-                  "Tool call successful '${this@mcpToolToRegisteredTool.descriptor.name}'. Result: ${
+                  "Tool call successful '${mcpTool.descriptor.name}'. Result: ${
                     result.content.joinToString("\n") { it.toString() }
                   }"
                 }
@@ -732,11 +731,11 @@ class McpServerService(val cs: CoroutineScope) {
                   throw ce
                 }
                 catch (t: Throwable) {
-                  logger.error("Failed to process changed documents after calling MCP tool ${this@mcpToolToRegisteredTool.descriptor.name}",
+                  logger.error("Failed to process changed documents after calling MCP tool ${mcpTool.descriptor.name}",
                                t)
                 }
                 application.messageBus.syncPublisher(ToolCallListener.TOPIC)
-                  .afterMcpToolCall(this@mcpToolToRegisteredTool.descriptor, sideEffectEvents, null, additionalData)
+                  .afterMcpToolCall(mcpTool.descriptor, sideEffectEvents, null, additionalData)
                 result
               }
               catch (ce: CancellationException) {
@@ -744,14 +743,14 @@ class McpServerService(val cs: CoroutineScope) {
                 logger.traceThrowable { CancellationException(message, ce) }
                 span.setStatus(StatusCode.ERROR, message)
                 application.messageBus.syncPublisher(ToolCallListener.TOPIC)
-                  .afterMcpToolCall(this@mcpToolToRegisteredTool.descriptor, sideEffectEvents, ce, additionalData)
+                  .afterMcpToolCall(mcpTool.descriptor, sideEffectEvents, ce, additionalData)
                 McpToolCallResult.error(message)
               }
               catch (mcpException: McpExpectedError) {
                 logger.traceThrowable { mcpException }
                 span.setStatus(StatusCode.ERROR, "MCP expected error: ${mcpException.mcpErrorText}")
                 application.messageBus.syncPublisher(ToolCallListener.TOPIC)
-                  .afterMcpToolCall(this@mcpToolToRegisteredTool.descriptor, sideEffectEvents, mcpException, additionalData)
+                  .afterMcpToolCall(mcpTool.descriptor, sideEffectEvents, mcpException, additionalData)
                 McpToolCallResult.error(mcpException.mcpErrorText, mcpException.mcpErrorStructureContent)
               }
               catch (t: Throwable) {
@@ -759,7 +758,7 @@ class McpServerService(val cs: CoroutineScope) {
                 logger.error(t)
                 span.setStatus(StatusCode.ERROR, errorMessage)
                 application.messageBus.syncPublisher(ToolCallListener.TOPIC)
-                  .afterMcpToolCall(this@mcpToolToRegisteredTool.descriptor, sideEffectEvents, t, additionalData)
+                  .afterMcpToolCall(mcpTool.descriptor, sideEffectEvents, t, additionalData)
                 McpToolCallResult.error(errorMessage)
               }
               finally {
@@ -774,7 +773,7 @@ class McpServerService(val cs: CoroutineScope) {
                                         .put("mcp.side_effects.vfs_events", vfsEvent.size.toLong())
                                         .put("mcp.side_effects.document_changes", initialDocumentContents.size.toLong())
                                         .build())
-                McpServerCounterUsagesCollector.reportMcpCall(descriptor)
+                McpServerCounterUsagesCollector.reportMcpCall(mcpTool.descriptor)
               }
             }
           }

@@ -12,6 +12,10 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
+import com.intellij.agent.workbench.sessions.core.AgentSessionLaunchMode
+import com.intellij.agent.workbench.sessions.core.AgentSessionProvider
+import com.intellij.agent.workbench.sessions.core.AgentSessionThread
+import com.intellij.agent.workbench.sessions.core.AgentSubAgent
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Rule
 import org.junit.Test
@@ -165,6 +169,67 @@ class AgentSessionsToolWindowTest {
   }
 
   @Test
+  fun openProjectsDoNotShowOpenBadge() {
+    val projects = listOf(
+      AgentProjectSessions(
+        path = "/work/project-open",
+        name = "Project Open",
+        isOpen = true,
+      ),
+      AgentProjectSessions(
+        path = "/work/project-closed",
+        name = "Project Closed",
+        isOpen = false,
+      ),
+    )
+
+    composeRule.setContentWithTheme {
+      agentSessionsToolWindowContent(
+        state = AgentSessionsState(projects = projects),
+        onRefresh = {},
+        onOpenProject = {},
+      )
+    }
+
+    composeRule.onNodeWithText("Project Open").assertIsDisplayed()
+    composeRule.onNodeWithText("Project Closed").assertIsDisplayed()
+    composeRule.onAllNodesWithText("OPEN")
+      .assertCountEquals(0)
+  }
+
+  @Test
+  fun allOpenProjectsRemainVisibleWhenClosedQuotaIsReached() {
+    val projects = listOf(
+      AgentProjectSessions(path = "/work/project-1", name = "Project 1", isOpen = false),
+      AgentProjectSessions(path = "/work/project-2", name = "Project 2", isOpen = false),
+      AgentProjectSessions(path = "/work/project-3", name = "Project 3", isOpen = false),
+      AgentProjectSessions(path = "/work/project-open-a", name = "Project Open A", isOpen = true),
+      AgentProjectSessions(path = "/work/project-4", name = "Project 4", isOpen = false),
+      AgentProjectSessions(path = "/work/project-open-b", name = "Project Open B", isOpen = true),
+      AgentProjectSessions(path = "/work/project-5", name = "Project 5", isOpen = false),
+    )
+
+    composeRule.setContentWithTheme {
+      agentSessionsToolWindowContent(
+        state = AgentSessionsState(projects = projects),
+        onRefresh = {},
+        onOpenProject = {},
+        visibleClosedProjectCount = 3,
+      )
+    }
+
+    composeRule.onNodeWithText("Project 1").assertIsDisplayed()
+    composeRule.onNodeWithText("Project 2").assertIsDisplayed()
+    composeRule.onNodeWithText("Project 3").assertIsDisplayed()
+    composeRule.onNodeWithText("Project Open A").assertIsDisplayed()
+    composeRule.onNodeWithText("Project Open B").assertIsDisplayed()
+    composeRule.onAllNodesWithText("Project 4").assertCountEquals(0)
+    composeRule.onAllNodesWithText("Project 5").assertCountEquals(0)
+    composeRule.onNodeWithText(AgentSessionsBundle.message("toolwindow.action.more.count", 2))
+      .assertIsDisplayed()
+  }
+
+  @Test
   fun hoveringProjectRowShowsQuickCreateSessionActionAndDoesNotInvokeOpenCallback() {
     var createdSessionPath: String? = null
     var createdSessionProvider: AgentSessionProvider? = null
@@ -209,6 +274,123 @@ class AgentSessionsToolWindowTest {
       assertThat(createdSessionProvider).isEqualTo(AgentSessionProvider.CLAUDE)
       assertThat(createdSessionMode).isEqualTo(AgentSessionLaunchMode.STANDARD)
       assertThat(openedPath).isNull()
+    }
+  }
+
+  @Test
+  fun hoveringProjectRowWithLongTitleKeepsQuickCreateSessionActionAccessible() {
+    var createdSessionPath: String? = null
+    var createdSessionProvider: AgentSessionProvider? = null
+    var createdSessionMode: AgentSessionLaunchMode? = null
+    val projectPath = "/work/project-plus"
+    val longProjectName = "Project Plus ".repeat(12).trim()
+    val projects = listOf(
+      AgentProjectSessions(
+        path = projectPath,
+        name = longProjectName,
+        branch = "main",
+        isOpen = false,
+        worktrees = listOf(
+          AgentWorktree(
+            path = "$projectPath/worktree",
+            name = "project-plus-worktree",
+            branch = "feature-x",
+            isOpen = false,
+            hasLoaded = true,
+          ),
+        ),
+      ),
+    )
+
+    composeRule.setContentWithTheme {
+      agentSessionsToolWindowContent(
+        state = AgentSessionsState(projects = projects),
+        onRefresh = {},
+        onOpenProject = {},
+        onCreateSession = { path, provider, mode ->
+          createdSessionPath = path
+          createdSessionProvider = provider
+          createdSessionMode = mode
+        },
+        lastUsedProvider = AgentSessionProvider.CLAUDE,
+      )
+    }
+
+    val quickActionLabel = providerDisplayName(AgentSessionProvider.CLAUDE)
+    composeRule.onAllNodesWithContentDescription(quickActionLabel).assertCountEquals(0)
+
+    composeRule.onNodeWithText("Project Plus", substring = true)
+      .assertIsDisplayed()
+      .performMouseInput { moveTo(center) }
+
+    composeRule.onNodeWithContentDescription(quickActionLabel)
+      .assertIsDisplayed()
+      .performClick()
+
+    composeRule.runOnIdle {
+      assertThat(createdSessionPath).isEqualTo(projectPath)
+      assertThat(createdSessionProvider).isEqualTo(AgentSessionProvider.CLAUDE)
+      assertThat(createdSessionMode).isEqualTo(AgentSessionLaunchMode.STANDARD)
+    }
+  }
+
+  @Test
+  fun hoveringWorktreeRowWithLongTitleKeepsQuickCreateSessionActionAccessible() {
+    var createdSessionPath: String? = null
+    var createdSessionProvider: AgentSessionProvider? = null
+    var createdSessionMode: AgentSessionLaunchMode? = null
+    val now = 1_700_000_000_000L
+    val worktreePath = "/work/project-feature"
+    val longWorktreeName = "project-feature-long-name-".repeat(8).trimEnd('-')
+    val worktreeThread = AgentSessionThread(id = "wt-thread-1", title = "WT Thread", updatedAt = now, archived = false)
+    val projects = listOf(
+      AgentProjectSessions(
+        path = "/work/project-a",
+        name = "Project A",
+        isOpen = true,
+        hasLoaded = true,
+        worktrees = listOf(
+          AgentWorktree(
+            path = worktreePath,
+            name = longWorktreeName,
+            branch = "feature-x",
+            isOpen = false,
+            hasLoaded = true,
+            threads = listOf(worktreeThread),
+          ),
+        ),
+      ),
+    )
+
+    composeRule.setContentWithTheme {
+      agentSessionsToolWindowContent(
+        state = AgentSessionsState(projects = projects),
+        onRefresh = {},
+        onOpenProject = {},
+        onCreateSession = { path, provider, mode ->
+          createdSessionPath = path
+          createdSessionProvider = provider
+          createdSessionMode = mode
+        },
+        lastUsedProvider = AgentSessionProvider.CLAUDE,
+      )
+    }
+
+    val quickActionLabel = providerDisplayName(AgentSessionProvider.CLAUDE)
+    composeRule.onAllNodesWithContentDescription(quickActionLabel).assertCountEquals(0)
+
+    composeRule.onNodeWithText("project-feature-long-name", substring = true)
+      .assertIsDisplayed()
+      .performMouseInput { moveTo(center) }
+
+    composeRule.onNodeWithContentDescription(quickActionLabel)
+      .assertIsDisplayed()
+      .performClick()
+
+    composeRule.runOnIdle {
+      assertThat(createdSessionPath).isEqualTo(worktreePath)
+      assertThat(createdSessionProvider).isEqualTo(AgentSessionProvider.CLAUDE)
+      assertThat(createdSessionMode).isEqualTo(AgentSessionLaunchMode.STANDARD)
     }
   }
 
@@ -544,7 +726,7 @@ class AgentSessionsToolWindowTest {
         state = AgentSessionsState(projects = projects),
         onRefresh = {},
         onOpenProject = {},
-        visibleProjectCount = 10,
+        visibleClosedProjectCount = 10,
       )
     }
 
@@ -836,7 +1018,7 @@ class AgentSessionsToolWindowTest {
         state = AgentSessionsState(projects = projects),
         onRefresh = {},
         onOpenProject = {},
-        visibleProjectCount = 10,
+        visibleClosedProjectCount = 10,
       )
     }
 

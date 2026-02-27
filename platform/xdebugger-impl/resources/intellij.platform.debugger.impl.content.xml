@@ -21,7 +21,7 @@
                         serviceImplementation="com.intellij.xdebugger.impl.settings.XDebuggerSettingManagerImpl"/>
     <applicationSettings service="com.intellij.xdebugger.impl.settings.XDebuggerSettingManagerImpl"/>
 
-    <applicationService serviceInterface="com.intellij.xdebugger.XDebuggerUtil" open="true"
+    <applicationService serviceInterface="com.intellij.xdebugger.XDebuggerUtil"
                         serviceImplementation="com.intellij.xdebugger.impl.XDebuggerUtilImpl"/>
 
     <execution.inlineResumeCreator implementation="com.intellij.xdebugger.impl.runToolbar.XDebuggerInlineResumeCreator" order="first"/>
@@ -31,8 +31,6 @@
     <ide.dynamicPluginVetoer implementation="com.intellij.xdebugger.impl.XDebuggerManagerImpl$XDebuggerPluginVetoer"/>
 
     <pathMacroFilter implementation="com.intellij.xdebugger.impl.XDebuggerHistoryManager$XDebuggerHistoryPathMacroFilter"/>
-
-    <xdebugger.inlineValuePopupProvider implementation="com.intellij.xdebugger.impl.InlineTextValuePopupProvider"/>
 
     <executor implementation="com.intellij.execution.executors.DefaultDebugExecutor" order="first,after run" id="debug"/>
 
@@ -79,13 +77,9 @@
     <applicationService serviceInterface="com.intellij.xdebugger.attach.XAttachRecentItemsMatcher" open="true"
                         serviceImplementation="com.intellij.xdebugger.impl.actions.DefaultAttachRecentItemsMatcher"/>
 
-    <gutterMarkPreprocessor implementation="com.intellij.xdebugger.impl.breakpoints.BreakpointGutterIconMerge"/>
-
     <runDashboardCustomizer implementation="com.intellij.xdebugger.impl.dashboard.XDebuggerRunDashboardCustomizer" order="first"/>
     <xdebugger.managerProxy implementation="com.intellij.xdebugger.impl.proxy.MonolithXDebugManagerProxy" order="last"/>
     <xdebugger.monolithAccessPoint implementation="com.intellij.xdebugger.impl.proxy.XDebuggerMonolithAccessPointImpl"/>
-
-    <bookmarksListProvider implementation="com.intellij.xdebugger.impl.breakpoints.BreakpointListProvider"/>
 
     <registryKey defaultValue="false"
                  description="Enables remove/disable all but this breakpoint actions"
@@ -96,18 +90,9 @@
                  key="xdebugger.toolwindow.split"
                  restartRequired="true"/>
 
-    <registryKey defaultValue="false"
-                 description="Use LUXed evaluation debugger popup"
-                 key="xdebugger.lux.evaluation.popup"/>
-
     <registryKey defaultValue="true"
                  description="Throw warnings and errors about misusages of frontend components on the backend (and vice versa)"
                  key="xdebugger.toolwindow.split.warnings"/>
-
-    <remote.customDataContextSerializer implementation="com.intellij.xdebugger.impl.ui.RunContentDescriptorKeySerializer"/>
-    <remote.customDataContextSerializer implementation="com.intellij.xdebugger.impl.ui.ExecutionEnvironmentKeySerializer"/>
-    <remote.customDataContextSerializer implementation="com.intellij.xdebugger.impl.ui.XDebuggerTreeSelectedValuesSerializer"/>
-    <remote.customDataContextSerializer implementation="com.intellij.xdebugger.impl.ui.XDebuggerTreeSelectedStacksSerializer"/>
 
     <intentionAction>
       <language>UAST</language>
@@ -116,12 +101,6 @@
   </extensions>
 
   <actions resource-bundle="messages.XDebuggerImplBundle">
-    <action id="Debugger.FocusOnBreakpoint" class="com.intellij.xdebugger.impl.actions.FocusOnBreakpointAction">
-      <add-to-group group-id="XDebugger.Actions"/>
-    </action>
-    <action id="Debugger.FocusOnFinish" class="com.intellij.xdebugger.impl.actions.FocusOnFinishAction">
-      <add-to-group group-id="XDebugger.Actions"/>
-    </action>
     <action id="Debugger.RemoveAllBreakpoints" class="com.intellij.xdebugger.impl.actions.RemoveAllBreakpointsAction">
       <add-to-group group-id="XDebugger.Actions"/>
     </action>
@@ -184,11 +163,6 @@
     <group id="XDebugger.AttachGroup">
       <action id="XDebugger.AttachToProcess" class="com.intellij.xdebugger.impl.actions.AttachToProcessAction"/>
       <add-to-group group-id="RunMenu" anchor="before" relative-to-action="editRunConfigurations"/>
-    </group>
-
-    <group id="ToolbarPopupActions.XDebugger.ToolWindow.TopToolbar3">
-      <group id="DebugToolbarQuickActions" class="com.intellij.xdebugger.impl.actions.DebuggerToolbarQuickActionsGroup" searchable="false"
-             popup="true"/>
     </group>
 
     <group id="RunToolbarMainMoreActionGroupDebuggerPart">

@@ -33,6 +33,7 @@ import com.intellij.driver.sdk.ui.should
 import com.intellij.driver.sdk.ui.ui
 import com.intellij.driver.sdk.waitFor
 import com.intellij.driver.sdk.waitForCodeAnalysis
+import com.intellij.driver.sdk.waitNotNull
 import org.intellij.lang.annotations.Language
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -45,7 +46,7 @@ import kotlin.time.Duration.Companion.seconds
 private const val topLevelEditorSearchPattern = "//div[@class='EditorComponentImpl' and not(@accessiblename='Editor')]"
 
 fun Finder.notebookEditor(@Language("xpath") xpath: String? = null): NotebookEditorUiComponent =
-  x(xpath ?: "//div[@class='EditorCompositePanel']",
+  x(xpath ?: "//div[@class='EditorCompositePanel' and .//div[@class='JupyterFileEditorToolbar']]",
     NotebookEditorUiComponent::class.java)
 
 fun Finder.notebookEditor(action: NotebookEditorUiComponent.() -> Unit) {
@@ -56,11 +57,11 @@ fun NotebookEditorUiComponent.waitForHighlighting() {
   driver.waitForCodeAnalysis(file = editor.getVirtualFile())
 }
 
-typealias CellSelector = (List<UiComponent>) -> UiComponent
+typealias CellSelector = (List<UiComponent>) -> UiComponent?
 
-val FirstCell: CellSelector = { it.first() }
-val SecondCell: CellSelector = { it.drop(1).first() }
-val LastCell: CellSelector = { it.last() }
+val FirstCell: CellSelector = { it.firstOrNull() }
+val SecondCell: CellSelector = { it.getOrNull(1) }
+val LastCell: CellSelector = { it.lastOrNull() }
 
 
 class NotebookEditorUiComponent(private val data: ComponentData) : JEditorUiComponent(data) {
@@ -166,6 +167,17 @@ class NotebookEditorUiComponent(private val data: ComponentData) : JEditorUiComp
     pasteToCurrentCell(content)
   }
 
+  /**
+   * Adds a new SQL cell to the notebook with the provided content.
+   *
+   * @param content The SQL code to be inserted into the new SQL cell.
+   * @throws IllegalStateException if the notebook does not support SQL cells.
+   */
+  fun addSqlCell(@Language("SQL") content: String) {
+    driver.invokeActionWithRetries("JupyterAddSQLCellAction")
+    driver.ui.pasteText(content)
+  }
+
   fun runAllCells(): Unit = runAllCells.strictClick()
 
   fun runCell(): Unit = runAndSelectNext.strictClick()
@@ -222,14 +234,12 @@ class NotebookEditorUiComponent(private val data: ComponentData) : JEditorUiComp
   }
 
   fun clickOnCell(cellSelector: CellSelector) {
-    val cellEditors = notebookCellEditors
-    val cell = cellSelector(cellEditors)
+    val cell = waitNotNull { cellSelector(notebookCellEditors) }
     cell.strictClick()
   }
 
   fun moveMouseOnCell(cellSelector: CellSelector) {
-    val cellEditors = notebookCellEditors
-    val cell = cellSelector(cellEditors)
+    val cell = waitNotNull { cellSelector(notebookCellEditors) }
     cell.moveMouse()
   }
 
@@ -254,7 +264,8 @@ class NotebookEditorUiComponent(private val data: ComponentData) : JEditorUiComp
       clickOnCell(cellSelector)
       driver.ui.pasteText(text)
       val searchText = text.replace("\n", "").replace(" ", "")
-      LastCell(notebookCellEditors).getParent().getParent().getAllTexts().asString().replace(" ", "").contains(searchText)
+      val lastCell = waitNotNull { LastCell(notebookCellEditors) }
+      lastCell.getParent().getParent().getAllTexts().asString().replace(" ", "").contains(searchText)
     }
   }
 
@@ -325,7 +336,10 @@ fun Driver.createNewNotebook(name: String = "New Notebook", type: NotebookType) 
 
 fun Driver.createNewNotebookWithMouse(name: String = "New Notebook", type: NotebookType) {
   ideFrame {
-    leftToolWindowToolbar.projectButton.open()
+    waitFor("Project view should present", timeout = 1.minutes) {
+      leftToolWindowToolbar.projectButton.open()
+      projectView().present()
+    }
     projectView {
       projectViewTree.run {
         waitFor("wait for project tree to load", 30.seconds) {
@@ -336,7 +350,6 @@ fun Driver.createNewNotebookWithMouse(name: String = "New Notebook", type: Noteb
     }
 
     val newFileButton = x { byAccessibleName("New File or Directory…") }
-
 
     should("New notebook button should be pressed", timeout = 1.minutes) {
       should(message = "new file popup should present and focused", timeout = 30.seconds) {
@@ -359,16 +372,17 @@ fun Driver.createNewNotebookWithMouse(name: String = "New Notebook", type: Noteb
         enter() // submit the popup
       }
     }
-
-    waitFor("the editor is present", timeout = 1.minutes) {
-      notebookEditor().present()
-    }
     projectView {
       projectViewTree.run {
         waitOneText(message = "File name should present in project tree", timeout = 15.seconds) {
           it.text == "$name.ipynb"
         }
       }
+    }
+  }
+  withNotebookEditor {
+    waitFor("the editor is present", timeout = 1.minutes) {
+      notebookCellEditors.isNotEmpty()
     }
   }
 }
@@ -433,7 +447,7 @@ fun Driver.withNotebookEditor(testBody: NotebookEditorUiComponent.() -> Unit): I
 }
 
 fun Driver.openNotebookWithProjectPanel(fileName: String): IdeaFrameUI = ideFrame {
-  leftToolWindowToolbar.projectButton.open()
+  openLeftToolWindow("Project")
   projectView {
     projectViewTree.run {
       waitOneText(fileName).doubleClick()
@@ -441,6 +455,5 @@ fun Driver.openNotebookWithProjectPanel(fileName: String): IdeaFrameUI = ideFram
   }
   waitFor("the editor is present", timeout = 30.seconds) {
     notebookEditor().present()
-
   }
 }

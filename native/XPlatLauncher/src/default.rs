@@ -11,10 +11,8 @@ use crate::*;
 
 const IDE_HOME_LOOKUP_DEPTH: usize = 5;
 
-#[cfg(not(target_os = "macos"))]
-const PRODUCT_INFO_REL_PATH: &str = "product-info.json";
-#[cfg(target_os = "macos")]
-const PRODUCT_INFO_REL_PATH: &str = "Resources/product-info.json";
+const PRODUCT_INFO_NAME: &str = "product-info.json";
+const JVM_OPTIONS_ENV_VAR: &str = "IJ_JAVA_OPTIONS";
 
 #[cfg(target_os = "windows")]
 const USER_HOME_MACRO: &str = "%USER_HOME%";
@@ -275,6 +273,14 @@ impl DefaultLaunchConfiguration {
         vm_options.extend(dist_vm_options.into_iter().filter(|l| !filters.iter().any(|filter| filter(l))));
         vm_options.extend(user_vm_options);
 
+        debug!("[3] Looking for {JVM_OPTIONS_ENV_VAR}");
+        if let Ok(env_var) = env::var(JVM_OPTIONS_ENV_VAR) {
+            debug!("got: [{env_var}]");
+            shell_words::split(env_var.as_str())?.iter().for_each(|arg| {
+                vm_options.push(arg.to_string());
+            })
+        }
+
         vm_options.push(jvm_property!("jb.vmOptionsFile", vm_options_path.to_string_checked()?));
         if corrupted {
             vm_options.push(jvm_property!("jb.vmOptionsFile.corrupted", "true"))
@@ -346,9 +352,7 @@ pub struct ProductLaunchInfo {
     pub custom_data_directory_name: Option<String>,
 }
 
-pub fn compute_launch_info(product_info: &ProductInfo, command_name: Option<&String>)
-    -> Result<ProductLaunchInfo> {
-
+pub fn compute_launch_info(product_info: &ProductInfo, command_name: Option<&String>) -> Result<ProductLaunchInfo> {
     if product_info.launch.len() != 1 {
         bail!("Malformed product descriptor (expecting 1 'launch' record, got {})", product_info.launch.len())
     }
@@ -398,7 +402,7 @@ pub fn compute_launch_info(product_info: &ProductInfo, command_name: Option<&Str
 }
 
 fn find_ide_home(current_exe: &Path) -> Result<(PathBuf, PathBuf)> {
-    debug!("Looking for: '{PRODUCT_INFO_REL_PATH}'");
+    debug!("Looking for: '{PRODUCT_INFO_NAME}'");
 
     if let Some(paths) = traverse_parents(current_exe.to_path_buf())? {
         return Ok(paths);
@@ -423,7 +427,16 @@ fn traverse_parents(mut candidate: PathBuf) -> Result<Option<(PathBuf, PathBuf)>
             None => { break; }
         };
         debug!("Probing for IDE home: {candidate:?}");
-        let product_info_path = candidate.join(PRODUCT_INFO_REL_PATH);
+
+        #[cfg(target_os = "macos")]
+        {
+            let product_info_path = candidate.join("Resources").join(PRODUCT_INFO_NAME);
+            if product_info_path.is_file() {
+                return Ok(Some((candidate, product_info_path)))
+            }
+        }
+
+        let product_info_path = candidate.join(PRODUCT_INFO_NAME);
         if product_info_path.is_file() {
             return Ok(Some((candidate, product_info_path)))
         }

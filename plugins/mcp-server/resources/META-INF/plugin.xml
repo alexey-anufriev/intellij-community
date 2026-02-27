@@ -26,6 +26,9 @@
     <module name="intellij.libraries.ktor.network.tls"/>
     <module name="intellij.libraries.ktor.server.cio"/>
     <module name="intellij.libraries.ktor.client.cio"/>
+    <!-- region Generated dependencies - run `Generate Product Layouts` to regenerate -->
+    <module name="intellij.platform.vcs.impl"/>
+    <!-- endregion -->
   </dependencies>
   <!--suppress PluginXmlValidity -->
   <content namespace="jetbrains">
@@ -61,6 +64,7 @@
     <mcpServer.mcpToolset implementation="com.intellij.mcpserver.toolsets.general.FormattingToolset" />
     <mcpServer.mcpToolset implementation="com.intellij.mcpserver.toolsets.general.ReadToolset" />
     <mcpServer.mcpToolset implementation="com.intellij.mcpserver.toolsets.general.TextToolset" />
+    <mcpServer.mcpToolset implementation="com.intellij.mcpserver.toolsets.general.PatchToolset" />
     <mcpServer.mcpToolset implementation="com.intellij.mcpserver.toolsets.general.SearchToolset" />
     <mcpServer.mcpToolset implementation="com.intellij.mcpserver.toolsets.general.CodeInsightToolset" />
     <mcpServer.mcpToolset implementation="com.intellij.mcpserver.toolsets.general.RefactoringToolset" />
@@ -80,6 +84,12 @@
     <registryKey defaultValue="*"
                  description="Filter for MCP tools, like -*,+com.intellij.mcpserver.toolsets.general.*,-*.get_file_text_by_path"
                  key="mcp.server.tools.filter"/>
+    <registryKey defaultValue="false"
+                 description="Enable exposing git_status MCP tool"
+                 key="mcp.server.tools.enable.git.status"/>
+    <registryKey defaultValue="false"
+                 description="Enable exposing apply_patch MCP tool"
+                 key="mcp.server.tools.enable.apply.patch"/>
     <registryKey defaultValue="false"
                  description="Show advanced filter options UI in MCP tool filter settings"
                  key="mcp.server.show.advanced.filter.options.ui"/>

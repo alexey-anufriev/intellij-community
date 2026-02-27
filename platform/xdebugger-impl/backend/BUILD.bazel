@@ -44,7 +44,6 @@ jvm_library(
     "//platform/platform-util-io:ide-util-io",
     "//platform/execution-impl/backend",
     "//platform/xdebugger-impl/shared",
-    "//platform/xdebugger-impl/ui",
     "//platform/xdebugger-impl/rpc",
   ],
   runtime_deps = ["//platform/backend"]
@@ -87,7 +86,6 @@ jvm_library(
     "//platform/platform-util-io:ide-util-io_test_lib",
     "//platform/execution-impl/backend:backend_test_lib",
     "//platform/xdebugger-impl/shared:shared_test_lib",
-    "//platform/xdebugger-impl/ui:ui_test_lib",
     "//platform/xdebugger-impl/rpc:rpc_test_lib",
   ]
 )

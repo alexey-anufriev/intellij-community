@@ -1,13 +1,12 @@
 // Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.agent.workbench.sessions
 
+import com.intellij.agent.workbench.common.normalizeAgentWorkbenchPath
+import com.intellij.agent.workbench.sessions.core.AgentSessionProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import java.nio.file.InvalidPathException
-import java.nio.file.Path
-import kotlin.io.path.invariantSeparatorsPathString
 
 internal class AgentSessionsStateStore(
   private val treeUiState: SessionsTreeUiState,
@@ -52,11 +51,15 @@ internal class AgentSessionsStateStore(
   }
 
   fun showMoreProjects() {
-    mutableState.update { it.copy(visibleProjectCount = it.visibleProjectCount + DEFAULT_VISIBLE_PROJECT_COUNT) }
+    mutableState.update {
+      it.copy(
+        visibleClosedProjectCount = it.visibleClosedProjectCount + DEFAULT_VISIBLE_CLOSED_PROJECT_COUNT,
+      )
+    }
   }
 
   fun showMoreThreads(path: String) {
-    val normalizedPath = normalizePath(path)
+    val normalizedPath = normalizeAgentWorkbenchPath(path)
     var deltaToPersist = 0
     mutableState.update { state ->
       val current = state.visibleThreadCounts[normalizedPath] ?: treeUiState.getVisibleThreadCount(normalizedPath)
@@ -70,7 +73,7 @@ internal class AgentSessionsStateStore(
   }
 
   fun ensureThreadVisible(path: String, provider: AgentSessionProvider, threadId: String) {
-    val normalizedPath = normalizePath(path)
+    val normalizedPath = normalizeAgentWorkbenchPath(path)
     var deltaToPersist = 0
     mutableState.update { state ->
       val threadIndex = findThreadIndex(
@@ -97,7 +100,7 @@ internal class AgentSessionsStateStore(
   }
 
   fun removeThread(path: String, provider: AgentSessionProvider, threadId: String): Boolean {
-    val normalizedPath = normalizePath(path)
+    val normalizedPath = normalizeAgentWorkbenchPath(path)
     var removed = false
     mutableState.update { state ->
       val nextProjects = state.projects.map { project ->
@@ -180,10 +183,10 @@ internal class AgentSessionsStateStore(
     knownPaths: List<String>,
     currentVisibleThreadCounts: Map<String, Int>,
   ): Map<String, Int> {
-    val normalizedKnownPaths = knownPaths.mapTo(LinkedHashSet()) { normalizePath(it) }
+    val normalizedKnownPaths = knownPaths.mapTo(LinkedHashSet()) { normalizeAgentWorkbenchPath(it) }
     val visibleThreadCounts = LinkedHashMap<String, Int>()
     currentVisibleThreadCounts.forEach { (path, count) ->
-      val normalized = normalizePath(path)
+      val normalized = normalizeAgentWorkbenchPath(path)
       if (normalized in normalizedKnownPaths && count > DEFAULT_VISIBLE_THREAD_COUNT) {
         visibleThreadCounts[normalized] = count
       }
@@ -198,33 +201,25 @@ internal class AgentSessionsStateStore(
     return visibleThreadCounts
   }
 
-  private fun findThreadIndex(
-    projects: List<AgentProjectSessions>,
-    normalizedPath: String,
-    provider: AgentSessionProvider,
-    threadId: String,
-  ): Int? {
-    val projectThreads = projects.firstOrNull { it.path == normalizedPath }?.threads
-    if (projectThreads != null) {
-      val index = projectThreads.indexOfFirst { it.provider == provider && it.id == threadId }
-      if (index >= 0) return index
-    }
+}
 
-    projects.forEach { project ->
-      val worktreeThreads = project.worktrees.firstOrNull { it.path == normalizedPath }?.threads ?: return@forEach
-      val index = worktreeThreads.indexOfFirst { it.provider == provider && it.id == threadId }
-      if (index >= 0) return index
-    }
-
-    return null
+private fun findThreadIndex(
+  projects: List<AgentProjectSessions>,
+  normalizedPath: String,
+  provider: AgentSessionProvider,
+  threadId: String,
+): Int? {
+  val projectThreads = projects.firstOrNull { it.path == normalizedPath }?.threads
+  if (projectThreads != null) {
+    val index = projectThreads.indexOfFirst { it.provider == provider && it.id == threadId }
+    if (index >= 0) return index
   }
 
-  private fun normalizePath(path: String): String {
-    return try {
-      Path.of(path).invariantSeparatorsPathString
-    }
-    catch (_: InvalidPathException) {
-      path
-    }
+  projects.forEach { project ->
+    val worktreeThreads = project.worktrees.firstOrNull { it.path == normalizedPath }?.threads ?: return@forEach
+    val index = worktreeThreads.indexOfFirst { it.provider == provider && it.id == threadId }
+    if (index >= 0) return index
   }
+
+  return null
 }

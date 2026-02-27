@@ -196,8 +196,10 @@ private class BookmarkLayoutGrid(
     putClientProperty(TYPE_KEY, type)
     addPropertyChangeListener { repaint() }
     addActionListener {
-      onChosen(type)
-      updateButtons(type)
+      WriteIntentReadAction.run {
+        onChosen(type)
+        updateButtons(type)
+      }
     }
     inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0, true), "released")
     inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0, false), "pressed")

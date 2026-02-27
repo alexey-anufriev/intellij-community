@@ -7,9 +7,17 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.intellij.agent.workbench.chat.AgentChatTabSelection
+import com.intellij.agent.workbench.common.normalizeAgentWorkbenchPath
+import com.intellij.agent.workbench.sessions.core.AgentSessionLaunchMode
+import com.intellij.agent.workbench.sessions.core.AgentSessionProvider
+import com.intellij.agent.workbench.sessions.core.AgentSessionThread
+import com.intellij.agent.workbench.sessions.core.AgentSubAgent
 import org.jetbrains.jewel.foundation.ExperimentalJewelApi
 import org.jetbrains.jewel.foundation.lazy.tree.Tree
 import org.jetbrains.jewel.foundation.lazy.tree.TreeGeneratorScope
@@ -33,11 +41,14 @@ internal fun sessionTree(
   onOpenSubAgent: (String, AgentSessionThread, AgentSubAgent) -> Unit,
   onCreateSession: (String, AgentSessionProvider, AgentSessionLaunchMode) -> Unit = { _, _, _ -> },
   onArchiveThread: (String, AgentSessionThread) -> Unit = { _, _ -> },
+  onArchiveThreads: (List<ArchiveThreadTarget>) -> Unit = { targets ->
+    targets.forEach { target -> onArchiveThread(target.path, target.thread) }
+  },
   canArchiveThread: (AgentSessionThread) -> Boolean = { false },
   treeUiState: SessionsTreeUiState,
   lastUsedProvider: AgentSessionProvider? = null,
   nowProvider: () -> Long,
-  visibleProjectCount: Int = Int.MAX_VALUE,
+  visibleClosedProjectCount: Int = Int.MAX_VALUE,
   onShowMoreProjects: () -> Unit = {},
   visibleThreadCounts: Map<String, Int> = emptyMap(),
   onShowMoreThreads: (String) -> Unit = {},
@@ -54,8 +65,13 @@ internal fun sessionTree(
     onWorktreeExpanded = onWorktreeExpanded,
   )
   val treeState = stateHolder.treeState
-  val autoOpenNodes = remember(projects, visibleProjectCount, treeUiState) {
-    projects.take(visibleProjectCount)
+  val pointerEventActions = remember(treeState) { SessionTreePointerEventActions(treeState) }
+  var selectedArchiveTargets by remember { mutableStateOf<List<ArchiveThreadTarget>>(emptyList()) }
+  val visibleProjectsResult = remember(projects, visibleClosedProjectCount) {
+    computeVisibleProjects(projects, visibleClosedProjectCount)
+  }
+  val autoOpenNodes = remember(visibleProjectsResult, treeUiState) {
+    visibleProjectsResult.visibleProjects
       .filter {
         it.isOpen ||
         it.errorMessage != null ||
@@ -81,8 +97,8 @@ internal fun sessionTree(
     }
     treeState.selectedKeys = setOf(selectedTreeId)
   }
-  val tree = remember(projects, visibleProjectCount, visibleThreadCounts) {
-    buildSessionTree(projects, visibleProjectCount, visibleThreadCounts)
+  val tree = remember(projects, visibleClosedProjectCount, visibleThreadCounts) {
+    buildSessionTree(projects, visibleClosedProjectCount, visibleThreadCounts)
   }
 
   val treeStyle = run {
@@ -110,6 +126,9 @@ internal fun sessionTree(
       nodeText = { element -> sessionTreeNodeText(element.data) },
       style = treeStyle,
       onElementClick = { element ->
+        if (!pointerEventActions.consumeShouldOpenOnClick(element.id)) {
+          return@SpeedSearchableTree
+        }
         when (val node = element.data) {
           is SessionTreeNode.Project -> {
             onOpenProject(node.project.path)
@@ -144,14 +163,18 @@ internal fun sessionTree(
         }
       },
       onElementDoubleClick = {},
-      onSelectionChange = {},
+      onSelectionChange = { selectedElements ->
+        selectedArchiveTargets = resolveSelectedArchiveThreadTargets(selectedElements)
+      },
+      pointerEventActions = pointerEventActions,
     ) { element ->
       sessionTreeNodeContent(
         element = element,
         onOpenProject = onOpenProject,
         onRefresh = onRefresh,
         onCreateSession = onCreateSession,
-        onArchiveThread = onArchiveThread,
+        onArchiveThreads = onArchiveThreads,
+        selectedArchiveTargets = selectedArchiveTargets,
         canArchiveThread = canArchiveThread,
         lastUsedProvider = lastUsedProvider,
         nowProvider = nowProvider,
@@ -160,15 +183,33 @@ internal fun sessionTree(
   }
 }
 
+private fun resolveSelectedArchiveThreadTargets(
+  selectedElements: List<Tree.Element<SessionTreeNode>>,
+): List<ArchiveThreadTarget> {
+  val targetsByKey = LinkedHashMap<String, ArchiveThreadTarget>()
+  selectedElements.forEach { element ->
+    val node = element.data as? SessionTreeNode.Thread ?: return@forEach
+    val path = when (val id = element.id) {
+      is SessionTreeId.WorktreeThread -> id.worktreePath
+      is SessionTreeId.Thread -> id.projectPath
+      else -> node.project.path
+    }
+    val normalizedPath = normalizeAgentWorkbenchPath(path)
+    val target = ArchiveThreadTarget(path = normalizedPath, thread = node.thread)
+    val key = "$normalizedPath:${node.thread.provider}:${node.thread.id}"
+    targetsByKey.putIfAbsent(key, target)
+  }
+  return targetsByKey.values.toList()
+}
+
 private fun buildSessionTree(
   projects: List<AgentProjectSessions>,
-  visibleProjectCount: Int,
+  visibleClosedProjectCount: Int,
   visibleThreadCounts: Map<String, Int>,
 ): Tree<SessionTreeNode> =
   buildTree {
-    val visibleProjects = projects.take(visibleProjectCount)
-    val hiddenCount = (projects.size - visibleProjectCount).coerceAtLeast(0)
-    visibleProjects.forEach { project ->
+    val visibleProjectsResult = computeVisibleProjects(projects, visibleClosedProjectCount)
+    visibleProjectsResult.visibleProjects.forEach { project ->
       val projectId = SessionTreeId.Project(project.path)
       addNode(
         data = SessionTreeNode.Project(project),
@@ -251,13 +292,44 @@ private fun buildSessionTree(
         }
       }
     }
-    if (hiddenCount > 0) {
+    if (visibleProjectsResult.hiddenClosedProjectCount > 0) {
       addLeaf(
-        data = SessionTreeNode.MoreProjects(hiddenCount),
+        data = SessionTreeNode.MoreProjects(visibleProjectsResult.hiddenClosedProjectCount),
         id = SessionTreeId.MoreProjects,
       )
     }
   }
+
+private data class VisibleProjectsResult(
+  val visibleProjects: List<AgentProjectSessions>,
+  val hiddenClosedProjectCount: Int,
+)
+
+private fun computeVisibleProjects(
+  projects: List<AgentProjectSessions>,
+  visibleClosedProjectCount: Int,
+): VisibleProjectsResult {
+  var remainingClosedCount = visibleClosedProjectCount.coerceAtLeast(0)
+  var hiddenClosedProjectCount = 0
+  val visibleProjects = ArrayList<AgentProjectSessions>(projects.size)
+  for (project in projects) {
+    if (project.isOpen || project.worktrees.any { worktree -> worktree.isOpen }) {
+      visibleProjects.add(project)
+      continue
+    }
+    if (remainingClosedCount > 0) {
+      visibleProjects.add(project)
+      remainingClosedCount--
+    }
+    else {
+      hiddenClosedProjectCount++
+    }
+  }
+  return VisibleProjectsResult(
+    visibleProjects = visibleProjects,
+    hiddenClosedProjectCount = hiddenClosedProjectCount,
+  )
+}
 
 private fun TreeGeneratorScope<SessionTreeNode>.addThreadNodes(
   project: AgentProjectSessions,
@@ -382,10 +454,10 @@ internal fun resolveSelectedSessionTreeId(
 ): SessionTreeId? {
   if (selection == null) return null
   val identity = parseAgentSessionIdentity(selection.threadIdentity) ?: return null
-  val normalizedPath = normalizeSessionsProjectPath(selection.projectPath)
+  val normalizedPath = normalizeAgentWorkbenchPath(selection.projectPath)
 
   val worktreeMatch = projects.firstNotNullOfOrNull { project ->
-    project.worktrees.firstOrNull { normalizeSessionsProjectPath(it.path) == normalizedPath }?.let { worktree -> project to worktree }
+    project.worktrees.firstOrNull { normalizeAgentWorkbenchPath(it.path) == normalizedPath }?.let { worktree -> project to worktree }
   }
   if (worktreeMatch != null) {
     val (project, worktree) = worktreeMatch
@@ -398,7 +470,7 @@ internal fun resolveSelectedSessionTreeId(
     )
   }
 
-  val project = projects.firstOrNull { normalizeSessionsProjectPath(it.path) == normalizedPath } ?: return null
+  val project = projects.firstOrNull { normalizeAgentWorkbenchPath(it.path) == normalizedPath } ?: return null
   return resolveProjectSelection(
     project = project,
     provider = identity.provider,

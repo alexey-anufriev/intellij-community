@@ -22,6 +22,10 @@ import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.unit.dp
 import com.intellij.agent.workbench.chat.AgentChatTabSelectionService
 import com.intellij.agent.workbench.sessions.claude.ClaudeQuotaStatusBarWidgetSettings
+import com.intellij.agent.workbench.sessions.core.AgentSessionLaunchMode
+import com.intellij.agent.workbench.sessions.core.AgentSessionProvider
+import com.intellij.agent.workbench.sessions.core.AgentSessionThread
+import com.intellij.agent.workbench.sessions.core.AgentSubAgent
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.delay
@@ -85,10 +89,11 @@ internal fun agentSessionsToolWindow(currentProject: Project) {
     onOpenSubAgent = { path, thread, subAgent -> service.openChatSubAgent(path, thread, subAgent, currentProject) },
     onCreateSession = { path, provider, mode -> service.createNewSession(path, provider, mode, currentProject) },
     onArchiveThread = { path, thread -> service.archiveThread(path, thread) },
+    onArchiveThreads = { targets -> service.archiveThreads(targets) },
     canArchiveThread = { thread -> service.canArchiveThread(thread) },
     treeUiState = uiStateService,
     lastUsedProvider = lastUsedProvider,
-    visibleProjectCount = state.visibleProjectCount,
+    visibleClosedProjectCount = state.visibleClosedProjectCount,
     onShowMoreProjects = { service.showMoreProjects() },
     visibleThreadCounts = state.visibleThreadCounts,
     onShowMoreThreads = { path -> service.showMoreThreads(path) },
@@ -115,11 +120,14 @@ internal fun agentSessionsToolWindowContent(
   onOpenSubAgent: (String, AgentSessionThread, AgentSubAgent) -> Unit = { _, _, _ -> },
   onCreateSession: (String, AgentSessionProvider, AgentSessionLaunchMode) -> Unit = { _, _, _ -> },
   onArchiveThread: (String, AgentSessionThread) -> Unit = { _, _ -> },
+  onArchiveThreads: (List<ArchiveThreadTarget>) -> Unit = { targets ->
+    targets.forEach { target -> onArchiveThread(target.path, target.thread) }
+  },
   canArchiveThread: (AgentSessionThread) -> Boolean = { false },
   treeUiState: SessionsTreeUiState? = null,
   lastUsedProvider: AgentSessionProvider? = null,
   nowProvider: () -> Long = { System.currentTimeMillis() },
-  visibleProjectCount: Int = Int.MAX_VALUE,
+  visibleClosedProjectCount: Int = Int.MAX_VALUE,
   onShowMoreProjects: () -> Unit = {},
   visibleThreadCounts: Map<String, Int> = emptyMap(),
   onShowMoreThreads: (String) -> Unit = {},
@@ -154,11 +162,12 @@ internal fun agentSessionsToolWindowContent(
         onOpenSubAgent = onOpenSubAgent,
         onCreateSession = onCreateSession,
         onArchiveThread = onArchiveThread,
+        onArchiveThreads = onArchiveThreads,
         canArchiveThread = canArchiveThread,
         treeUiState = effectiveTreeUiState,
         lastUsedProvider = lastUsedProvider,
         nowProvider = nowProvider,
-        visibleProjectCount = visibleProjectCount,
+        visibleClosedProjectCount = visibleClosedProjectCount,
         onShowMoreProjects = onShowMoreProjects,
         visibleThreadCounts = visibleThreadCounts,
         onShowMoreThreads = onShowMoreThreads,

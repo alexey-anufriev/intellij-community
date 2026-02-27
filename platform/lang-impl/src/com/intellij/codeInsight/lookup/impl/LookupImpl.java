@@ -103,7 +103,6 @@ import com.intellij.ui.awt.RelativePoint;
 import com.intellij.ui.components.JBList;
 import com.intellij.ui.scale.JBUIScale;
 import com.intellij.util.CollectConsumer;
-import com.intellij.util.ExceptionUtil;
 import com.intellij.util.SlowOperations;
 import com.intellij.util.concurrency.AppExecutorUtil;
 import com.intellij.util.concurrency.ThreadingAssertions;
@@ -1437,8 +1436,9 @@ public class LookupImpl extends LightweightHint implements LookupEx, Disposable,
   }
 
   private void doHide(boolean fireCanceled, boolean explicitly) {
-    if (isLookupDisposed()) {
-      LOG.error(formatDisposeTrace());
+    AssertionError invalidError = prepareErrorIfInvalid();
+    if (invalidError != null) {
+      LOG.error(invalidError);
     }
     if (!mySession.getClientId().equals(ClientId.getCurrent())) {
       LOG.error(ClientId.getCurrent() + " tries to hide lookup of " + mySession.getClientId());
@@ -1487,10 +1487,6 @@ public class LookupImpl extends LightweightHint implements LookupEx, Disposable,
     }
   }
 
-  private @NotNull String formatDisposeTrace() {
-    return ExceptionUtil.getThrowableText(disposeTrace) + "\n============";
-  }
-
   /**
    * @param mayCheckReused   pass {@code true} if you want refresh because lookup is reused for another completion process (e.g., prefix has changed, the completion type has changed, etc.)
    * @param onExplicitAction the method is called on explicit user action
@@ -1536,9 +1532,20 @@ public class LookupImpl extends LightweightHint implements LookupEx, Disposable,
   }
 
   public void checkValid() {
-    if (isLookupDisposed()) {
-      throw new AssertionError("Disposed at: " + formatDisposeTrace());
+    AssertionError error = prepareErrorIfInvalid();
+    if (error != null) {
+      throw error;
     }
+  }
+
+  private @Nullable AssertionError prepareErrorIfInvalid() {
+    if (!isLookupDisposed()) {
+      return null;
+    }
+
+    AssertionError error = new AssertionError("Lookup is disposed (see suppressed exception)");
+    error.addSuppressed(disposeTrace);
+    return error;
   }
 
   @Override

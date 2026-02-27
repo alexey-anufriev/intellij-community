@@ -44,6 +44,14 @@ final class KJvmUtils {
     return container instanceof KmClass && Attributes.getModality(((KmClass)container)) == Modality.SEALED;
   }
 
+  static boolean isFinal(JvmClass cls) {
+    return isFinal(getDeclarationContainer(cls));
+  }
+
+  static boolean isFinal(KmDeclarationContainer container) {
+    return container instanceof KmClass && Attributes.getModality(((KmClass)container)) == Modality.FINAL;
+  }
+
   static Iterable<KmFunction> allKmFunctions(Node<?, ?> node) {
     KotlinMeta meta = getKotlinMeta(node);
     return meta != null? meta.getKmFunctions() : Collections.emptyList();

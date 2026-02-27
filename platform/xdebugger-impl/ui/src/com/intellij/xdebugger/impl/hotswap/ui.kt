@@ -8,6 +8,9 @@ import com.intellij.openapi.project.Project
 import org.jetbrains.annotations.ApiStatus
 import javax.swing.Icon
 
+@ApiStatus.Internal
+const val NOTIFICATION_TIME_SECONDS: Int = 3
+
 /**
  * Extension point to configure UI for different IDEs.
  */

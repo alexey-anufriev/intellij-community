@@ -3400,16 +3400,21 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     }
   }
 
-  private boolean shouldSetCursorPositionImmediately() {
-    return !getSettings().isAnimatedCaret() ||
-           gainedFocus.getAndSet(false) ||
-           myMouseIsInDrag ||
-           Registry.is("ui.simplified", false) ||
+  boolean shouldDisableAnimations() {
+    return Registry.is("ui.simplified", false) ||
            PowerSaveMode.isEnabled() ||
            RemoteDesktopService.isRemoteSession();
   }
 
+  private boolean shouldSetCursorPositionImmediately() {
+    return !getSettings().isAnimatedCaret() ||
+           gainedFocus.getAndSet(false) ||
+           myMouseIsInDrag ||
+           shouldDisableAnimations();
+  }
+
   private void setCursorPosition() {
+    caretMoveProcessor.invalidateStaleCarets();
     if (shouldSetCursorPositionImmediately()) {
       caretMoveProcessor.setCursorPositionImmediately();
     } else {
@@ -4557,9 +4562,10 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
       if (EVENT_LOG.isDebugEnabled()) {
         EVENT_LOG.debug(e.toString());
       }
+      boolean isLineNumbersAreaClicked = myMousePressArea == EditorMouseEventArea.LINE_NUMBERS_AREA;
       myMousePressArea = null;
       myLastMousePressedLocation = null;
-      EditorThreading.runWritable(() -> {
+      Runnable processMouseReleased = () -> {
         runMouseReleasedCommand(e);
         if (!e.isConsumed() && myMousePressedEvent != null && !myMousePressedEvent.isConsumed() &&
             Math.abs(e.getX() - myMousePressedEvent.getX()) < EditorUtil.getSpaceWidth(Font.PLAIN, EditorImpl.this) &&
@@ -4567,7 +4573,14 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
           runMouseClickedCommand(e);
         }
         setFocusGained();
-      });
+      };
+      if (isLineNumbersAreaClicked) {
+        // TODO: XLineBreakpointManager should be reworked to avoid WIL
+        WriteIntentReadAction.run(processMouseReleased);
+      }
+      else {
+        EditorThreading.runWritable(processMouseReleased);
+      }
     }
 
     @Override

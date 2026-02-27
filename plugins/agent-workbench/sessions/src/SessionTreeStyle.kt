@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.intellij.agent.workbench.sessions.core.AgentSessionThread
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.theme.simpleListItemStyle
 import org.jetbrains.jewel.ui.theme.treeStyle
@@ -16,12 +17,7 @@ import kotlin.math.roundToLong
 
 @Composable
 internal fun threadIndicatorColor(thread: AgentSessionThread): Color {
-  return when (thread.activity) {
-    AgentSessionActivity.UNREAD -> Color(0xFF4DA3FF)
-    AgentSessionActivity.REVIEWING -> Color(0xFF2FD1C4)
-    AgentSessionActivity.PROCESSING -> Color(0xFFFF9F43)
-    AgentSessionActivity.READY -> Color(0xFF3FE47E)
-  }
+  return Color(thread.activity.argb)
 }
 
 @Composable
@@ -36,13 +32,14 @@ internal fun treeRowBackground(
   isSelected: Boolean,
   isActive: Boolean,
   baseTint: Color = Color.Unspecified,
+  baseTintAlpha: Float = 0.06f,
 ): Color {
   if (isSelected || isActive) return Color.Transparent
   val hoverBase = rowHoverBase()
   if (isHovered && hoverBase.isSpecified) {
     return hoverBase.copy(alpha = 0.12f)
   }
-  return if (baseTint.isSpecified) baseTint.copy(alpha = 0.06f) else Color.Transparent
+  return if (baseTint.isSpecified) baseTint.copy(alpha = baseTintAlpha.coerceIn(0f, 1f)) else Color.Transparent
 }
 
 @Composable
@@ -54,11 +51,6 @@ internal fun treeRowShape(): RoundedCornerShape {
 @Composable
 internal fun treeRowSpacing(): Dp {
   return JewelTheme.treeStyle.metrics.simpleListItemMetrics.iconTextGap
-}
-
-@Composable
-internal fun projectRowTint(): Color {
-  return projectRowTintBase()
 }
 
 @Composable
@@ -92,16 +84,6 @@ internal fun projectActionSlotSize(): Dp {
 private fun indicatorSize(scale: Float, min: Dp, max: Dp): Dp {
   val baseSize = JewelTheme.treeStyle.metrics.elementMinHeight * scale
   return baseSize.coerceIn(min, max)
-}
-
-@Composable
-private fun projectRowTintBase(): Color {
-  val treeColors = JewelTheme.treeStyle.colors
-  val listColors = JewelTheme.simpleListItemStyle.colors
-  return treeColors.backgroundSelected
-    .takeOrElse { treeColors.backgroundSelectedActive }
-    .takeOrElse { listColors.backgroundSelected }
-    .takeOrElse { listColors.backgroundSelectedActive }
 }
 
 @Composable

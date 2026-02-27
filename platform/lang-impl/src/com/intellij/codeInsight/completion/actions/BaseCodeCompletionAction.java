@@ -98,7 +98,13 @@ public abstract class BaseCodeCompletionAction extends DumbAwareAction implement
     }
 
     if (IdeProductMode.isBackend()) {
-      return !NewRdCompletionSupport.isFrontendRdCompletionOn();
+      // always true:
+      // - if the frontend is able to run completion, then the backend action is not called (because of ActionRemoteBehavior.FrontendOtherwiseBackend),
+      //      so it does not matter what this method returns on backend and true is okay.
+      // - if the frontend is not able to run completion, then backend action is called
+      //      so this method should return true on backend.
+
+      return true;
     }
 
     throw new IllegalStateException("Unknown product mode: " + IdeProductMode.getInstance());

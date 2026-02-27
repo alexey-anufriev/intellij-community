@@ -313,6 +313,11 @@ public abstract class SafeDeleteTestGenerated extends AbstractSafeDeleteTest {
             runTest("testData/refactoring/safeDelete/deleteFunction/kotlinFunction/overrideWithUsages.kt");
         }
 
+        @TestMetadata("unsafeWithImportUsage.kt")
+        public void testUnsafeWithImportUsage() throws Exception {
+            runTest("testData/refactoring/safeDelete/deleteFunction/kotlinFunction/unsafeWithImportUsage.kt");
+        }
+
         @TestMetadata("withDefinitelyNotNullType.kt")
         public void testWithDefinitelyNotNullType() throws Exception {
             runTest("testData/refactoring/safeDelete/deleteFunction/kotlinFunction/withDefinitelyNotNullType.kt");

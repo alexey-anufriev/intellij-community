@@ -36,6 +36,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.ui.popup.ListItemDescriptorAdapter
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.NlsContexts
 import com.intellij.openapi.util.SystemInfoRt
 import com.intellij.openapi.util.registry.Registry
@@ -84,6 +85,8 @@ import com.intellij.ui.render.RenderingUtil
 import com.intellij.ui.scale.JBUIScale.scale
 import com.intellij.usages.UsageViewPresentation
 import com.intellij.usages.impl.UsagePreviewPanel
+import com.intellij.util.concurrency.ThreadingAssertions
+import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.util.containers.ContainerUtil
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.StartupUiUtil.isWaylandToolkit
@@ -92,6 +95,7 @@ import com.intellij.util.ui.accessibility.ScreenReader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -345,7 +349,9 @@ class SePopupContentPane(
               if (resultListModel.isEmpty) {
                 hintHelper.setSearchInProgress(false)
                 updateEmptyStatus()
-                hideQuickDocPopup()
+                withContext(NonCancellable) {
+                  cancelQuickDocPopup()
+                }
               }
 
               semanticWarning.value = resultListModel.isValidAndHasOnlySemantic
@@ -476,21 +482,22 @@ class SePopupContentPane(
       vm.previewConfigurationFlow.collectLatest { configuration ->
         val isVisible = configuration?.fetchPreview != null
 
-        withContext(Dispatchers.EDT) {
-          usagePreviewPanel?.isVisible = isVisible
+        if (!isVisible) {
+          withContext(Dispatchers.EDT) {
+            usagePreviewPanel?.isVisible = false
+          }
+          return@collectLatest
         }
 
-        if (isVisible) {
-          selectedItemDataFlow.collectLatest { itemData ->
-            withContext(Dispatchers.EDT) {
-              if (itemData != null) {
-                val usageInfos = configuration.fetchPreview(itemData)
-                usagePreviewPanel?.isVisible = true
-                usagePreviewPanel?.updateLayout(configuration.project, usageInfos)
-              }
-              else {
-                usagePreviewPanel?.isVisible = false
-              }
+        selectedItemDataFlow.collectLatest { itemData ->
+          withContext(Dispatchers.EDT) {
+            if (itemData != null) {
+              val usageInfos = configuration.fetchPreview(itemData)
+              usagePreviewPanel?.isVisible = true
+              usagePreviewPanel?.updateLayout(configuration.project, usageInfos)
+            }
+            else {
+              usagePreviewPanel?.isVisible = false
             }
           }
         }
@@ -588,7 +595,9 @@ class SePopupContentPane(
     }
   }
 
+  @RequiresEdt
   private suspend fun elementsSelected(indexes: IntArray, modifiers: Int) {
+    ThreadingAssertions.assertEventDispatchThread()
     var nonItemDataCount = 0
 
     // Calculate items with indexes considering some non-item rows on top (for example, notification row).
@@ -607,7 +616,7 @@ class SePopupContentPane(
 
     val selectedItems = vmState.value?.itemsSelected(itemDataList, nonItemDataCount == 0, modifiers)
     if (selectedItems?.any { it is SeSelectionResultClose } == true) {
-      closePopup()
+      withContext(NonCancellable) { issueClosePopup() }
     }
     else {
       (selectedItems?.filterIsInstance<SeSelectionResultText>()?.firstOrNull())?.let { textField.text = it.searchText + " " }
@@ -747,8 +756,10 @@ class SePopupContentPane(
     }
 
     val escape = ActionManager.getInstance().getAction("EditorEscape")
-    DumbAwareAction.create { closePopup() }
-      .registerCustomShortcutSet(escape?.shortcutSet ?: CommonShortcuts.ESCAPE, this)
+    DumbAwareAction.create {
+      ThreadingAssertions.assertEventDispatchThread()
+      issueClosePopup()
+    }.registerCustomShortcutSet(escape?.shortcutSet ?: CommonShortcuts.ESCAPE, this)
 
     textField.addFocusListener(object : FocusAdapter() {
       override fun focusLost(e: FocusEvent) {
@@ -817,7 +828,9 @@ class SePopupContentPane(
     })
   }
 
+  @RequiresEdt
   private fun onFocusLost(e: FocusEvent) {
+    ThreadingAssertions.assertEventDispatchThread()
     if (isWaylandToolkit()) {
       // In Wayland focus is always lost when the window is being moved.
       return
@@ -828,7 +841,7 @@ class SePopupContentPane(
 
     val oppositeComponent = e.oppositeComponent
     if (!UIUtil.haveCommonOwner(this, oppositeComponent)) {
-      closePopup()
+      issueClosePopup()
     }
   }
 
@@ -898,9 +911,7 @@ class SePopupContentPane(
           override fun actionPerformed(e: AnActionEvent) {
             coroutineScope.launch {
               if (vmState.value?.currentTab?.performExtendedAction(item) == true) {
-                withContext(Dispatchers.EDT) {
-                  closePopup()
-                }
+                withContext(Dispatchers.EDT + NonCancellable) { issueClosePopup() }
               }
             }
           }
@@ -923,10 +934,9 @@ class SePopupContentPane(
     extendedInfoComponent?.let { extendedInfoContainer.add(it.component) }
   }
 
-  private fun closePopup() {
-    coroutineScope.launch(Dispatchers.EDT) {
-      hideQuickDocPopup()
-    }
+  // Requires a non-cancellable or blocking context since it calls into dispose stacks
+  private fun issueClosePopup() {
+    cancelQuickDocPopup()
     vmState.value?.closePopup()
   }
 
@@ -1146,17 +1156,20 @@ class SePopupContentPane(
   private fun updateQuickDocPopup(itemData: SeItemData?) {
     val quickDocPopup = quickDocPopup ?: return
     if (!quickDocPopup.isVisible()) return
-    val rawObject = itemData?.fetchItemIfExists()?.rawObject ?: hideQuickDocPopup()
+    val rawObject = itemData?.fetchItemIfExists()?.rawObject ?: cancelQuickDocPopup()
 
     val updateProcessor = quickDocPopup.getUserData(PopupUpdateProcessorBase::class.java)
     updateProcessor?.updatePopup(rawObject)
   }
 
-  private fun hideQuickDocPopup() {
+  // Requires a non-cancellable or blocking context since it calls into dispose stacks
+  private fun cancelQuickDocPopup() {
     quickDocPopup?.takeIf { it.isVisible }?.cancel()
   }
 
-  override fun dispose() {}
+  override fun dispose() {
+    usagePreviewPanel?.let { Disposer.dispose(it) }
+  }
 
   companion object {
     const val DEFAULT_FROZEN_VISIBLE_PART: Double = 1.1

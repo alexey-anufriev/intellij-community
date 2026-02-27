@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.debugger.engine;
 
 import com.intellij.ReviseWhenPortedToJDK;
@@ -50,6 +50,7 @@ import com.intellij.util.ConcurrencyUtil;
 import com.intellij.util.TimeoutUtil;
 import com.intellij.util.concurrency.AppExecutorUtil;
 import com.intellij.util.containers.ContainerUtil;
+import com.intellij.xdebugger.DapMode;
 import com.intellij.xdebugger.XDebugSession;
 import com.intellij.xdebugger.breakpoints.XBreakpoint;
 import com.intellij.xdebugger.impl.XDebugSessionImpl;
@@ -780,6 +781,10 @@ public class DebugProcessEvents extends DebugProcessImpl {
           String title = ex.getTitle();
           final String displayName = DebuggerUtilsImpl.getRequestorStringForUser(requestor);
           requestHit = DebuggerUtilsImpl.askAboutPauseOnException(getProject(), displayName, exceptionMessage, title);
+          // TODO: may be we need to use another approach for letting the user know that the evaluation failed?
+          if (DapMode.isDap()) {
+            printToConsole(JavaDebuggerBundle.message("error.failed.evaluating.breakpoint.condition", displayName, exceptionMessage));
+          }
           resumePreferred = !requestHit;
         }
         catch (VMDisconnectedException e) {

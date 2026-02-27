@@ -413,6 +413,14 @@ private class IjentFailSafeFileSystemWindowsApiImpl(
       stat(path, symlinkPolicy)
     }
 
+  override suspend fun createSymbolicLink(
+    target: EelFileSystemPosixApi.SymbolicLinkTarget,
+    linkPath: EelPath,
+  ): EelResult<Unit, EelFileSystemPosixApi.CreateSymbolicLinkError> =
+    holder.withDelegateRetrying {
+      createSymbolicLink(target, linkPath)
+    }
+
   override suspend fun sameFile(
     source: EelPath,
     target: EelPath,

@@ -21,6 +21,7 @@ import com.intellij.platform.debugger.impl.shared.proxy.XBreakpointProxy
 import com.intellij.platform.debugger.impl.shared.proxy.XBreakpointTypeProxy
 import com.intellij.platform.debugger.impl.shared.proxy.XDebugManagerProxy
 import com.intellij.platform.debugger.impl.shared.proxy.XLineBreakpointTypeProxy
+import com.intellij.platform.debugger.impl.ui.XDebuggerEntityConverter
 import com.intellij.platform.project.projectId
 import com.intellij.util.ThreeState
 import com.intellij.xdebugger.breakpoints.SuspendPolicy
@@ -28,8 +29,6 @@ import com.intellij.xdebugger.breakpoints.XBreakpoint
 import com.intellij.xdebugger.breakpoints.XBreakpointType.StandardPanels
 import com.intellij.xdebugger.breakpoints.XLineBreakpointType
 import com.intellij.xdebugger.breakpoints.ui.XBreakpointCustomPropertiesPanel
-import com.intellij.xdebugger.impl.breakpoints.XBreakpointUtil
-import com.intellij.platform.debugger.impl.ui.XDebuggerEntityConverter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.swing.Icon
@@ -55,6 +54,10 @@ private class FrontendXLineBreakpointType(
   override val temporaryIcon: Icon? = dto.icons.temporaryIcon?.icon()
 
   override val priority: Int = lineTypeInfo.priority
+
+  private val supportsInterLinePlacement: Boolean = lineTypeInfo.supportsInterLinePlacement
+
+  override fun supportsInterLinePlacement(): Boolean = supportsInterLinePlacement
 
   override suspend fun canPutAt(editor: Editor, line: Int, project: Project): Boolean {
     val availableTypes = FrontendEditorLinesBreakpointsInfoManager.getInstance(project).getBreakpointsInfoForLine(editor, line).types
@@ -96,7 +99,7 @@ private class FrontendXLineBreakpointType(
    */
   private inline fun canPutAtFastMonolith(project: Project, line: Int, fileProvider: () -> VirtualFile?): ThreeState? {
     if (FrontendApplicationInfo.getFrontendType() !is FrontendType.Monolith) return null
-    val monolithType = XBreakpointUtil.findType(id) as? XLineBreakpointType<*> ?: return null
+    val monolithType = XDebuggerEntityConverter.getBreakpointType(id) as? XLineBreakpointType<*> ?: return null
     val file = fileProvider() ?: return ThreeState.NO
     val canPut = monolithType.canPutAt(file, line, project)
     return ThreeState.fromBoolean(canPut)

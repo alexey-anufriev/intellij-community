@@ -3,8 +3,6 @@
 package org.jetbrains.kotlin.idea.completion.impl.k2.lookups.factories
 
 import com.intellij.codeInsight.AutoPopupController
-import com.intellij.codeInsight.completion.CodeCompletionHandlerBase
-import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.codeInsight.completion.InsertionContext
 import com.intellij.codeInsight.lookup.Lookup
 import com.intellij.codeInsight.lookup.LookupElement
@@ -44,7 +42,7 @@ import org.jetbrains.kotlin.idea.base.analysis.withRootPrefixIfNeeded
 import org.jetbrains.kotlin.idea.base.serialization.names.KotlinNameSerializer
 import org.jetbrains.kotlin.idea.completion.acceptOpeningBrace
 import org.jetbrains.kotlin.idea.completion.handlers.isCharAt
-import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.getVariadicCallable
+import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.toMatchingVariadicCallableOrNull
 import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.helpers.insertString
 import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.helpers.insertStringAndInvokeCompletion
 import org.jetbrains.kotlin.idea.completion.impl.k2.handlers.TrailingLambdaInsertionHandler
@@ -81,7 +79,7 @@ internal object FunctionLookupElementFactory {
         val valueParameters = signature.valueParameters
 
         // Check if the signature represents a variadic callable
-        val variadicCallable = signature.getVariadicCallable()
+        val variadicCallable = signature.toMatchingVariadicCallableOrNull()
         val renderedParameters =
             variadicCallable?.renderedParameters ?: CompletionShortNamesRenderer.renderFunctionParameters(valueParameters)
 

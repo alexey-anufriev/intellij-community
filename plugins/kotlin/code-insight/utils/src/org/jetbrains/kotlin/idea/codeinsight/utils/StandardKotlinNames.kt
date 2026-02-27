@@ -130,6 +130,8 @@ object StandardKotlinNames {
     @JvmField val takeIf: FqName = BUILT_INS_PACKAGE_FQ_NAME + "takeIf"
     @JvmField val takeUnless: FqName = BUILT_INS_PACKAGE_FQ_NAME + "takeUnless"
 
+    @JvmField val context: FqName = BUILT_INS_PACKAGE_FQ_NAME + "context"
+
     private val collectionTransformationFunctionNames = listOf(
         "chunked",
         "distinct",

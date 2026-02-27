@@ -1859,6 +1859,22 @@ public class Py3TypeCheckerInspectionTest extends PyInspectionTestCase {
                    """);
   }
 
+  // PY-63820
+  public void testVariadicGenericEmptyArgsCall() {
+    runWithLanguageLevel(LanguageLevel.getLatest(), () -> doTestByText("""
+                   from typing import TypeVarTuple
+                   
+                   Ts = TypeVarTuple('Ts')
+                   
+                   
+                   def foo(*args: *Ts) -> None:
+                       pass
+                   
+                   
+                   foo()
+                   """));
+  }
+
   // PY-53105
   public void testVariadicGenericArgumentByCallableInFunction() {
     doTestByText("""
@@ -4272,6 +4288,14 @@ public class Py3TypeCheckerInspectionTest extends PyInspectionTestCase {
                    """);
   }
 
+  // PY-64359
+  public void testTupleDictValues() {
+    doTestByText("""
+                   def f(a: dict[str, int]):
+                       b: tuple[int, ...] = tuple(a.values())
+                   """);
+  }
+
   // PY-86873
   public void testNestedListUnpacking() {
     doTestByText("""
@@ -4281,5 +4305,147 @@ public class Py3TypeCheckerInspectionTest extends PyInspectionTestCase {
                        c: list[int] = second_edge
                    """);
   }
-}
 
+  // PY-87802
+  public void testCallableProtocolWithAdditionalAttributeAssignment() {
+    doTestByText("""
+                   from typing import Protocol
+                   
+                   class Proto(Protocol):
+                       other_attribute: int
+                   
+                       def __call__(self, x: int) -> None:
+                           pass
+                   
+                   
+                   def f(x: int) -> None:
+                       pass
+                   
+                   
+                   v: Proto = <warning descr="Expected type 'Proto', got '(x: int) -> None' instead">f</warning>""");
+  }
+
+  // PY-87801
+  public void testCallableProtocolWithOverloadsFunctionAssignment() {
+    doTestByText("""
+                   from typing import Protocol, overload, Any
+                   
+                   class Proto(Protocol):
+                       @overload
+                       def __call__(self, x: int) -> int:
+                           ...
+                   
+                       @overload
+                       def __call__(self, x: str) -> str:
+                           ...
+                   
+                       def __call__(self, x: Any) -> Any:
+                           ...
+                   
+                   def f(x: int) -> Any:
+                       return x
+                   
+                   cb: Proto = <warning descr="Expected type 'Proto', got '(x: int) -> Any' instead">f</warning>""");
+  }
+
+  // PY-87801
+  public void testCallableProtocolWithOverloadsFunctionWithOverloadsAssignment() {
+    doTestByText("""
+                   from typing import Protocol, overload, Any
+                   
+                   class Proto(Protocol):
+                       @overload
+                       def __call__(self, x: int) -> int:
+                           ...
+                   
+                       @overload
+                       def __call__(self, x: str) -> str:
+                           ...
+                   
+                       def __call__(self, x: Any) -> Any:
+                           ...
+                   
+                   @overload
+                   def f(x: str) -> str: ...
+                   
+                   @overload
+                   def f(x: int) -> int: ...
+                   
+                   def f(x: Any) -> Any:
+                       return x
+                   
+                   cb: Proto = f""");
+  }
+
+  // PY-87801
+  public void testCallableProtocolWithOverloadsFunctionWithOverloadsNotMatchingAssignment() {
+    doTestByText("""
+                   from typing import Protocol, overload, Any
+                   
+                   class Proto(Protocol):
+                       @overload
+                       def __call__(self, x: int) -> int:
+                           ...
+                   
+                       @overload
+                       def __call__(self, x: str) -> str:
+                           ...
+                   
+                       def __call__(self, x: Any) -> Any:
+                           ...
+                   
+                   class A:
+                       pass
+                   
+                   @overload
+                   def f(x: str) -> str: ...
+                   
+                   @overload
+                   def f(x: A) -> A: ...
+                   
+                   def f(x: Any) -> Any:
+                       return x
+                   
+                   cb: Proto = <warning descr="Expected type 'Proto', got '(x: Any) -> Any' instead">f</warning>""");
+  }
+
+  public void testWildcardSignatures() {
+    doTestByText("""
+                   from typing import Protocol
+                   
+                   class Expected(Protocol):
+                       def __call__(self, *args, **kwargs): ...
+                   
+                   class Actual(Protocol):
+                       def __call__(self, a: float, *, key: str): ...
+                   
+                   def foo(e: Expected, a: Actual):
+                       _: Expected = a
+                       _: Actual = e
+                   """);
+  }
+
+  // PY-56613
+  public void testGenericAttributeAssignment() {
+    doTestByText("""
+                   class C[T]:
+                       attr: list[T]
+                   
+                   c: C[int]
+                   c.attr = <warning descr="Expected type 'list[int]', got 'list[str]' instead">["foo"]</warning>
+                   """);
+  }
+
+  // PY-85974
+  public void testSelfAttributeAssignment() {
+    doTestByText("""
+                   from typing import Self
+                   
+                   class Node:
+                       next: Self | None
+
+                   c: Node
+                   c.next = Node()
+                   """);
+  }
+}

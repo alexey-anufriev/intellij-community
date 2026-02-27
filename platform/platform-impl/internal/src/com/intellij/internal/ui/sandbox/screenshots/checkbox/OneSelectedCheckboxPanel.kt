@@ -10,10 +10,10 @@ import javax.swing.JComponent
 /**
  * @author Konstantin Bulenkov
  */
-internal open class OneSelectedCheckboxPanel(val correct: Boolean, val text: String) : UISandboxScreenshotPanel() {
+internal open class OneSelectedCheckboxPanel(val correct: Boolean, val text: String, val size: Dimension? = null, val relativePath: String? = null) : UISandboxScreenshotPanel() {
   override val title: String = if (correct) "Correct" else "Incorrect"
-  override val screenshotSize: Dimension? = null
-  override val sreenshotRelativePath: String? = null
+  override val screenshotSize: Dimension? = size
+  override val sreenshotRelativePath: String? = relativePath
 
   override fun createContentForScreenshot(disposable: Disposable): JComponent {
     return panel {

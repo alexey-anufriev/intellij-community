@@ -1,6 +1,7 @@
 // Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.agent.workbench.chat
 
+import com.intellij.agent.workbench.common.AgentThreadActivity
 import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.vfs.VirtualFileSystem
@@ -13,28 +14,35 @@ private val LOG = logger<AgentChatVirtualFileLog>()
 
 internal class AgentChatVirtualFile internal constructor(
   private val fileSystem: AgentChatVirtualFileSystem,
-  descriptor: AgentChatFileDescriptor,
-) : LightVirtualFile(resolveFileName(descriptor.tabKey)) {
-  val tabKey: String = descriptor.tabKey
-  var projectHash: String = descriptor.projectHash
+  resolution: AgentChatTabResolution,
+) : LightVirtualFile(resolveFileName(resolution.tabKey.value)) {
+  private val key: AgentChatTabKey = resolution.tabKey
+
+  val tabKey: String
+    get() = key.value
+
+  var projectHash: String = ""
     private set
 
-  var projectPath: String = descriptor.projectPath
+  var projectPath: String = ""
     private set
 
-  var threadIdentity: String = descriptor.threadIdentity
+  var threadIdentity: String = ""
     private set
 
-  var subAgentId: String? = descriptor.subAgentId
+  var subAgentId: String? = null
     private set
 
-  var shellCommand: List<String> = descriptor.shellCommand
+  var shellCommand: List<String> = emptyList()
     private set
 
-  var threadId: String = descriptor.threadId
+  var threadId: String = ""
     private set
 
-  var threadTitle: String = resolveThreadTitle(descriptor.threadTitle)
+  var threadTitle: String = resolveThreadTitle("")
+    private set
+
+  var threadActivity: AgentThreadActivity = AgentThreadActivity.READY
     private set
 
   @TestOnly
@@ -45,10 +53,11 @@ internal class AgentChatVirtualFile internal constructor(
     threadId: String,
     threadTitle: String,
     subAgentId: String?,
+    threadActivity: AgentThreadActivity = AgentThreadActivity.READY,
     projectHash: String = "",
   ) : this(
-    fileSystem = AgentChatVirtualFileSystems.createStandaloneForTest(),
-    descriptor = AgentChatFileDescriptor.create(
+    fileSystem = createStandaloneAgentChatVirtualFileSystemForTest(),
+    resolution = AgentChatTabResolution.Resolved(AgentChatTabSnapshot.create(
       projectHash = projectHash,
       projectPath = projectPath,
       threadIdentity = threadIdentity,
@@ -56,17 +65,19 @@ internal class AgentChatVirtualFile internal constructor(
       threadTitle = threadTitle,
       subAgentId = subAgentId,
       shellCommand = shellCommand,
-    ),
+      threadActivity = threadActivity,
+    ))
   )
 
+
   init {
-    fileType = AgentChatFileType
+    updateFromResolution(resolution)
     isWritable = false
   }
 
   override fun getFileSystem(): VirtualFileSystem = fileSystem
 
-  override fun getPath(): String = toDescriptor().toPath()
+  override fun getPath(): String = key.toPath()
 
   fun matches(threadIdentity: String, subAgentId: String?): Boolean {
     return this.threadIdentity == threadIdentity && this.subAgentId == subAgentId
@@ -89,36 +100,96 @@ internal class AgentChatVirtualFile internal constructor(
     return true
   }
 
+  fun updateThreadActivity(threadActivity: AgentThreadActivity): Boolean {
+    if (this.threadActivity == threadActivity) {
+      LOG.debug {
+        "Skipped tab activity update(identity=$threadIdentity, subAgentId=$subAgentId): unchanged activity=$threadActivity"
+      }
+      return false
+    }
+
+    val oldActivity = this.threadActivity
+    this.threadActivity = threadActivity
+    LOG.debug {
+      "Updated tab activity(identity=$threadIdentity, subAgentId=$subAgentId): oldActivity=$oldActivity newActivity=$threadActivity"
+    }
+    return true
+  }
+
   fun updateCommandAndThreadId(shellCommand: List<String>, threadId: String) {
     this.shellCommand = shellCommand
     this.threadId = threadId
   }
 
-  internal fun updateFromDescriptor(descriptor: AgentChatFileDescriptor) {
-    if (descriptor.threadIdentity.isNotBlank() || descriptor.projectPath.isNotBlank()) {
-      projectHash = descriptor.projectHash
-      projectPath = descriptor.projectPath
-      threadIdentity = descriptor.threadIdentity
-      subAgentId = descriptor.subAgentId
+  fun rebindPendingThread(
+    threadIdentity: String,
+    shellCommand: List<String>,
+    threadId: String,
+    threadTitle: String,
+    threadActivity: AgentThreadActivity,
+  ): Boolean {
+    var changed = false
+    if (this.threadIdentity != threadIdentity) {
+      this.threadIdentity = threadIdentity
+      changed = true
     }
-    if (descriptor.threadId.isNotBlank() || descriptor.shellCommand.isNotEmpty()) {
-      updateCommandAndThreadId(shellCommand = descriptor.shellCommand, threadId = descriptor.threadId)
+    if (this.shellCommand != shellCommand || this.threadId != threadId) {
+      updateCommandAndThreadId(shellCommand = shellCommand, threadId = threadId)
+      changed = true
     }
-    if (descriptor.threadTitle.isNotBlank()) {
-      updateThreadTitle(descriptor.threadTitle)
+    if (updateThreadTitle(threadTitle)) {
+      changed = true
+    }
+    if (updateThreadActivity(threadActivity)) {
+      changed = true
+    }
+
+    if (changed) {
+      LOG.debug {
+        "Rebound pending tab(identity=$threadIdentity, subAgentId=$subAgentId, threadId=$threadId)"
+      }
+    }
+    return changed
+  }
+
+  internal fun updateFromResolution(resolution: AgentChatTabResolution) {
+    when (resolution) {
+      is AgentChatTabResolution.Resolved -> updateFromSnapshot(resolution.snapshot)
+      is AgentChatTabResolution.Unresolved -> Unit
     }
   }
 
-  internal fun toDescriptor(): AgentChatFileDescriptor {
-    return AgentChatFileDescriptor(
-      tabKey = tabKey,
-      projectHash = projectHash,
-      projectPath = projectPath,
-      threadIdentity = threadIdentity,
-      threadId = threadId,
-      threadTitle = threadTitle,
-      subAgentId = subAgentId,
-      shellCommand = shellCommand,
+  private fun updateFromSnapshot(snapshot: AgentChatTabSnapshot) {
+    if (snapshot.identity.threadIdentity.isNotBlank() || snapshot.identity.projectPath.isNotBlank()) {
+      projectHash = snapshot.identity.projectHash
+      projectPath = snapshot.identity.projectPath
+      threadIdentity = snapshot.identity.threadIdentity
+      subAgentId = snapshot.identity.subAgentId
+    }
+    if (snapshot.runtime.threadId.isNotBlank() || snapshot.runtime.shellCommand.isNotEmpty()) {
+      updateCommandAndThreadId(shellCommand = snapshot.runtime.shellCommand, threadId = snapshot.runtime.threadId)
+    }
+    if (snapshot.runtime.threadTitle.isNotBlank()) {
+      updateThreadTitle(snapshot.runtime.threadTitle)
+    }
+    updateThreadActivity(snapshot.runtime.threadActivity)
+  }
+
+  internal fun toSnapshot(): AgentChatTabSnapshot {
+    return AgentChatTabSnapshot(
+      tabKey = key,
+      identity = AgentChatTabIdentity(
+        projectHash = projectHash,
+        projectPath = projectPath,
+        threadIdentity = threadIdentity,
+        subAgentId = subAgentId,
+      ),
+      runtime = AgentChatTabRuntime(
+        threadId = threadId,
+        threadTitle = threadTitle,
+        shellCommand = shellCommand,
+        threadActivity = threadActivity,
+      ),
     )
   }
 }

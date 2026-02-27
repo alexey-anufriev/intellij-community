@@ -2,48 +2,8 @@
 package com.intellij.agent.workbench.sessions
 
 import androidx.compose.runtime.Immutable
-
-private val AGENT_SESSION_PROVIDER_ID_REGEX = Regex("[a-z][a-z0-9._-]*")
-
-@JvmInline
-value class AgentSessionProvider private constructor(val value: String) {
-  companion object {
-    val CODEX: AgentSessionProvider = from("codex")
-
-    val CLAUDE: AgentSessionProvider = from("claude")
-
-    fun from(value: String): AgentSessionProvider {
-      require(AGENT_SESSION_PROVIDER_ID_REGEX.matches(value)) {
-        "Invalid provider id '$value'. Expected: ${AGENT_SESSION_PROVIDER_ID_REGEX.pattern}"
-      }
-      return AgentSessionProvider(value)
-    }
-
-    fun fromOrNull(value: String): AgentSessionProvider? {
-      return if (AGENT_SESSION_PROVIDER_ID_REGEX.matches(value)) AgentSessionProvider(value) else null
-    }
-  }
-
-  override fun toString(): String = value
-}
-
-enum class AgentSessionLaunchMode {
-  STANDARD,
-  YOLO,
-}
-
-enum class AgentSessionActivity {
-  READY,
-  PROCESSING,
-  REVIEWING,
-  UNREAD,
-}
-
-@Immutable
-data class AgentSubAgent(
-  @JvmField val id: String,
-  @JvmField val name: String,
-)
+import com.intellij.agent.workbench.sessions.core.AgentSessionProvider
+import com.intellij.agent.workbench.sessions.core.AgentSessionThread
 
 @Immutable
 data class AgentSessionThreadPreview(
@@ -54,15 +14,9 @@ data class AgentSessionThreadPreview(
 )
 
 @Immutable
-data class AgentSessionThread(
-  @JvmField val id: String,
-  @JvmField val title: String,
-  @JvmField val updatedAt: Long,
-  @JvmField val archived: Boolean,
-  @JvmField val activity: AgentSessionActivity = AgentSessionActivity.READY,
-  val provider: AgentSessionProvider = AgentSessionProvider.CODEX,
-  @JvmField val subAgents: List<AgentSubAgent> = emptyList(),
-  @JvmField val originBranch: String? = null,
+internal data class ArchiveThreadTarget(
+  @JvmField val path: String,
+  @JvmField val thread: AgentSessionThread,
 )
 
 @Immutable
@@ -103,6 +57,6 @@ internal data class AgentProjectSessions(
 internal data class AgentSessionsState(
   @JvmField val projects: List<AgentProjectSessions> = emptyList(),
   @JvmField val lastUpdatedAt: Long? = null,
-  @JvmField val visibleProjectCount: Int = DEFAULT_VISIBLE_PROJECT_COUNT,
+  @JvmField val visibleClosedProjectCount: Int = DEFAULT_VISIBLE_CLOSED_PROJECT_COUNT,
   @JvmField val visibleThreadCounts: Map<String, Int> = emptyMap(),
 )

@@ -128,7 +128,7 @@ internal class AppCommandCompletionSettings(
     // production
     if (
       PlatformUtils.isIntelliJ() ||
-      NewRdCompletionSupport.isFrontendRdCompletionOn() && NewRdCompletionSupport.isFrontendForIntelliJBackend()
+      NewRdCompletionSupport.isFrontendRdCompletionOn() && NewRdCompletionSupport.getInstance().isFrontendForIntelliJBackend()
     ) {
       if (Registry.`is`("ide.completion.command.force.enabled")) {
         return true

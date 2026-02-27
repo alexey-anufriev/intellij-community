@@ -45,6 +45,7 @@ import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.JBPopupListener;
 import com.intellij.openapi.ui.popup.LightweightWindowEvent;
 import com.intellij.openapi.util.Disposer;
+import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.NlsContexts;
 import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.text.StringUtil;
@@ -125,6 +126,9 @@ public final class DebuggerUIUtil {
 
   @ApiStatus.Internal
   public static final DataKey<Integer> OFFSET = DataKey.create("x.debugger.offset");
+
+  @ApiStatus.Internal
+  public static final Key<Boolean> DISABLE_VALUE_LOOKUP = Key.create("DISABLE_VALUE_LOOKUP");
 
   private DebuggerUIUtil() {
   }

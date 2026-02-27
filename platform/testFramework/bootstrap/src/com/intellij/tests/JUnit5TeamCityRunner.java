@@ -381,7 +381,7 @@ public final class JUnit5TeamCityRunner {
           testFailure(testIdentifier, ServiceMessageTypes.TEST_IGNORED, throwableOptional, duration, reason);
         }
 
-        TestLocationStorage.recordTestLocation(testIdentifier, status, getFullTestPath(testIdentifier));
+        TestLocationStorage.recordTestLocation(testIdentifier, status, getTestNameForMetadata(testIdentifier));
 
         testFinished(testIdentifier, duration);
         myFinishCount++;
@@ -573,6 +573,17 @@ public final class JUnit5TeamCityRunner {
       Collections.reverse(names);
       names.add(getName(testIdentifier));
       return String.join(": ", names);
+    }
+
+    private String getTestNameForMetadata(TestIdentifier testIdentifier) {
+      if (myReportAsBootstrapTestsSuite) {
+        return BOOTSTRAP_TESTS_SUITE_NAME + ": " + getName(testIdentifier);
+      }
+      boolean parentIsMethodSource = myTestPlan.getParent(testIdentifier)
+        .flatMap(TestIdentifier::getSource)
+        .filter(source -> source instanceof MethodSource)
+        .isPresent();
+      return parentIsMethodSource ? getFullTestPath(testIdentifier) : getName(testIdentifier);
     }
 
     static class LimitedStackTracePrintWriter extends PrintWriter {

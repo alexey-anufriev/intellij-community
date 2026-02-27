@@ -371,7 +371,7 @@ public final class ShowIntentionsPass extends TextEditorHighlightingPass impleme
                                                     int passIdToShowIntentionsFor,
                                                     int offset,
                                                     @Nullable PsiElement psiElement,
-                                                    @NotNull List<HighlightInfo.IntentionActionDescriptor> currentFixes) {
+                                                    @NotNull List<? extends HighlightInfo.IntentionActionDescriptor> currentFixes) {
     ProgressIndicator indicator = ProgressIndicatorProvider.getGlobalProgressIndicator();
     PsiFile injectedFile = InjectedLanguageUtilBase.findInjectedPsiNoCommit(hostFile, offset);
 

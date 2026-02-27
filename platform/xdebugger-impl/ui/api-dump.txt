@@ -80,6 +80,20 @@ c:com.intellij.xdebugger.impl.actions.ViewBreakpointsAction
 - actionPerformed(com.intellij.openapi.actionSystem.AnActionEvent):V
 - getActionUpdateThread():com.intellij.openapi.actionSystem.ActionUpdateThread
 - update(com.intellij.openapi.actionSystem.AnActionEvent):V
+com.intellij.xdebugger.impl.breakpoints.XBreakpointTypeWithDocumentDelegation
+- a:getDocumentForHighlighting(com.intellij.openapi.editor.Document):com.intellij.openapi.editor.Document
+c:com.intellij.xdebugger.impl.breakpoints.XExpressionState
+- myCustomInfo:java.lang.String
+- myDisabled:Z
+- myExpression:java.lang.String
+- myLanguage:java.lang.String
+- myMode:com.intellij.xdebugger.evaluation.EvaluationMode
+- myOldExpression:java.lang.String
+- <init>():V
+- <init>(com.intellij.xdebugger.XExpression):V
+- <init>(Z,com.intellij.xdebugger.XExpression):V
+- <init>(Z,java.lang.String,java.lang.String,java.lang.String,com.intellij.xdebugger.evaluation.EvaluationMode):V
+- toXExpression():com.intellij.xdebugger.XExpression
 c:com.intellij.xdebugger.impl.evaluate.CodeFragmentInputComponent
 - com.intellij.xdebugger.impl.evaluate.EvaluationInputComponent
 - <init>(com.intellij.openapi.project.Project,com.intellij.xdebugger.evaluation.XDebuggerEditorsProvider,com.intellij.xdebugger.XSourcePosition,com.intellij.xdebugger.XExpression,java.lang.String,com.intellij.openapi.Disposable):V
@@ -124,6 +138,13 @@ c:com.intellij.xdebugger.impl.evaluate.XDebuggerEvaluationDialog
 - getInitialSize():java.awt.Dimension
 - getPreferredFocusedComponent():javax.swing.JComponent
 - startEvaluation(com.intellij.xdebugger.evaluation.XDebuggerEvaluator$XEvaluationCallback):V
+c:com.intellij.xdebugger.impl.evaluate.XExpressionDialog
+- com.intellij.openapi.ui.DialogWrapper
+- <init>(com.intellij.openapi.project.Project,com.intellij.xdebugger.evaluation.XDebuggerEditorsProvider,java.lang.String,java.lang.String,com.intellij.xdebugger.XSourcePosition,com.intellij.xdebugger.XExpression):V
+- p:createCenterPanel():javax.swing.JComponent
+- p:getDimensionServiceKey():java.lang.String
+- f:getExpression():com.intellij.xdebugger.XExpression
+- getPreferredFocusedComponent():javax.swing.JComponent
 com.intellij.xdebugger.impl.evaluate.XValueCompactPresentation
 - a:renderValue(com.intellij.xdebugger.frame.presentation.XValuePresentation$XValueTextRenderer,com.intellij.xdebugger.impl.ui.tree.nodes.XValueNodeImpl):V
 c:com.intellij.xdebugger.impl.evaluate.quick.XDebuggerTreeCreator
@@ -134,13 +155,14 @@ c:com.intellij.xdebugger.impl.evaluate.quick.XDebuggerTreeCreator
 - getTitle(com.intellij.openapi.util.Pair):java.lang.String
 c:com.intellij.xdebugger.impl.evaluate.quick.XValueHint
 - com.intellij.xdebugger.impl.evaluate.quick.common.AbstractValueHint
-- p:createHintComponent(javax.swing.Icon,com.intellij.ui.SimpleColoredText,com.intellij.xdebugger.frame.presentation.XValuePresentation,com.intellij.xdebugger.frame.XFullValueEvaluator):javax.swing.JComponent
+- p:createHintComponent(javax.swing.Icon,com.intellij.ui.SimpleColoredText,com.intellij.xdebugger.frame.presentation.XValuePresentation,com.intellij.xdebugger.frame.XFullValueEvaluator,com.intellij.xdebugger.frame.XDebuggerTreeNodeHyperlink):javax.swing.JComponent
 - p:evaluateAndShowHint():V
 - hideHint():V
 - p:onHintHidden():V
 a:com.intellij.xdebugger.impl.evaluate.quick.common.AbstractValueHint
 - pf:myPoint:java.awt.Point
 - <init>(com.intellij.openapi.project.Project,com.intellij.openapi.editor.Editor,java.awt.Point,com.intellij.xdebugger.impl.evaluate.quick.common.ValueHintType,com.intellij.openapi.util.TextRange):V
+- ps:appendAdditionalHyperlink(com.intellij.xdebugger.frame.XDebuggerTreeNodeHyperlink,com.intellij.ui.SimpleColoredComponent):V
 - pf:appendEvaluatorLink(com.intellij.xdebugger.frame.XFullValueEvaluator,com.intellij.ui.SimpleColoredComponent):V
 - s:calculateOffset(com.intellij.openapi.editor.Editor,java.awt.Point):I
 - p:createExpandableHintComponent(javax.swing.Icon,com.intellij.ui.SimpleColoredText,java.lang.Runnable,com.intellij.xdebugger.frame.XFullValueEvaluator):javax.swing.JComponent
@@ -176,11 +198,10 @@ a:com.intellij.xdebugger.impl.evaluate.quick.common.QuickEvaluateHandler
 - isEnabled(com.intellij.openapi.project.Project,com.intellij.openapi.actionSystem.AnActionEvent):Z
 f:com.intellij.xdebugger.impl.evaluate.quick.common.QuickEvaluateHandler$CancellableHint
 - java.lang.Record
-- <init>(org.jetbrains.concurrency.Promise,kotlinx.coroutines.Deferred):V
+- <init>(org.jetbrains.concurrency.Promise):V
 - f:equals(java.lang.Object):Z
 - f:hashCode():I
 - hintPromise():org.jetbrains.concurrency.Promise
-- infoDeferred():kotlinx.coroutines.Deferred
 - s:resolved(com.intellij.xdebugger.impl.evaluate.quick.common.AbstractValueHint):com.intellij.xdebugger.impl.evaluate.quick.common.QuickEvaluateHandler$CancellableHint
 - tryCancel():V
 f:com.intellij.xdebugger.impl.frame.StackInfo
@@ -392,10 +413,6 @@ f:com.intellij.xdebugger.impl.ui.TextViewer
 - <init>(java.lang.String,com.intellij.openapi.project.Project,com.intellij.openapi.fileTypes.FileType,Z):V
 - <init>(java.lang.String,com.intellij.openapi.project.Project,Z):V
 - setText(java.lang.String):V
-f:com.intellij.xdebugger.impl.ui.XDebugSessionTabCustomizerKt
-- sf:allowFramesViewCustomization(com.intellij.xdebugger.XDebugProcess):Z
-- sf:forceShowNewDebuggerUi(com.intellij.xdebugger.XDebugProcess):Z
-- sf:getBottomLocalsComponentProvider(com.intellij.xdebugger.XDebugProcess):com.intellij.xdebugger.impl.ui.SessionTabComponentProvider
 f:com.intellij.xdebugger.impl.ui.XDebugSessionTabNewUIKt
 - sf:addDebugToolwindowActions(com.intellij.openapi.project.Project):V
 a:com.intellij.xdebugger.impl.ui.XDebuggerEditorBase

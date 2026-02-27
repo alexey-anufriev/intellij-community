@@ -26,11 +26,21 @@ interface XDebuggerMonolithAccessPoint {
   fun getBreakpointId(breakpoint: XBreakpoint<*>): XBreakpointId?
   fun asProxy(breakpoint: XBreakpoint<*>): XBreakpointProxy?
 
+  /**
+   * Creates a temporary [XValueId] for the given [XValue] in the given session, calls [block] with it,
+   * and disposes the temporary model after [block] completes.
+   */
+  suspend fun <T> withTemporaryXValueId(value: XValue, proxy: XDebugSessionProxy, block: suspend (XValueId) -> T): T
+
   companion object {
     internal val EP_NAME = ExtensionPointName<XDebuggerMonolithAccessPoint>("com.intellij.xdebugger.monolithAccessPoint")
 
     fun <T> find(block: (XDebuggerMonolithAccessPoint) -> T): T? {
       return EP_NAME.computeSafeIfAny(block)
+    }
+
+    fun findFirst(): XDebuggerMonolithAccessPoint? {
+      return EP_NAME.extensionList.firstOrNull()
     }
   }
 }
